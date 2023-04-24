@@ -2,7 +2,7 @@ name: Build
 on:
   push:
     branches:
-    - master
+    - fork-changes
     tags:
     - v2.*
     - v3.*
@@ -467,187 +467,187 @@ jobs:
         name: pufferpanel_${{ env.VERSION }}_arm64.deb
         path: pufferpanel_${{ env.VERSION }}_arm64.deb
 
-  build-docker-image-base:
-    runs-on: ubuntu-20.04
-    name: "Build Docker images"
-    if: "startsWith(github.ref, 'refs/tags/v') || !(contains(github.event.head_commit.message, '[skip]') || startsWith(github.head_ref, 'l10n_master'))"
-    env:
-      REPO: pufferpanel/pufferpanel
-      VERSION: latest
-    strategy:
-      matrix:
-        platform: ["linux/amd64"]
+#  build-docker-image-base:
+#    runs-on: ubuntu-20.04
+#    name: "Build Docker images"
+#    if: "startsWith(github.ref, 'refs/tags/v') || !(contains(github.event.head_commit.message, '[skip]') || startsWith(github.head_ref, 'l10n_master'))"
+#    env:
+#      REPO: pufferpanel/pufferpanel
+#      VERSION: latest
+#    strategy:
+#      matrix:
+#        platform: ["linux/amd64"]
+#
+#    timeout-minutes: 10
+#
+#    steps:
+#    - name: Get the version
+#      if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+#      run:
+#        echo "TAG=$REPO:base-devel" >> $GITHUB_ENV
+#
+#    - name: Get the version
+#      if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+#      run:
+#        echo "VERSION=devel" >> $GITHUB_ENV
+#
+#    - name: Get the version
+#      if: startsWith(github.ref, 'refs/tags/v')
+#      run:
+#        echo "TAG=$REPO:base-${GITHUB_REF/refs\/tags\/v/},$REPO:base" >> $GITHUB_ENV
+#
+#    - name: Get the version
+#      if: startsWith(github.ref, 'refs/tags/v')
+#      run:
+#        echo "VERSION=${GITHUB_REF/refs\/tags\/v/}" >> $GITHUB_ENV
+#
+#    - name: Check out code into the Go module directory
+#      uses: actions/checkout@v3
+#
+#    - name: Set up QEMU
+#      uses: docker/setup-qemu-action@v2
+#
+#    - name: Set up Docker Buildx
+#      uses: docker/setup-buildx-action@v2
+#
+#    - name: Login to DockerHub
+#      uses: docker/login-action@v2
+#      with:
+#        username: ${{ secrets.DOCKERHUB_USERNAME }}
+#        password: ${{ secrets.DOCKERHUB_TOKEN }}
+#
+#    - name: Build master container
+#      uses: docker/build-push-action@v2
+#      with:
+#        context: .
+#        push: true
+#        tags: ${{ env.TAG }}
+#        build-args: |
+#          sha: ${{ github.sha }}
+#          version: ${{ env.VERSION }}
+#        platforms: ${{ matrix.platform }}
 
-    timeout-minutes: 10
+#  build-docker-image-master:
+#    runs-on: ubuntu-20.04
+#    name: "Build Docker massive images"
+#    needs: [ "build-docker-image-base" ]
+#    env:
+#      REPO: pufferpanel/pufferpanel
+#      VERSION: base
+#
+#    timeout-minutes: 5
+#
+#    strategy:
+#      matrix:
+#        platform: [ "linux/amd64" ]
+#
+#    steps:
+#    - name: Get the version
+#      if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+#      run:
+#        echo "TAG=$REPO:devel" >> $GITHUB_ENV
+#
+#    - name: Get the version
+#      if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+#      run:
+#        echo "VERSION=devel" >> $GITHUB_ENV
+#
+#    - name: Get the version
+#      if: startsWith(github.ref, 'refs/tags/v')
+#      run:
+#        echo "TAG=$REPO:${GITHUB_REF/refs\/tags\/v/},$REPO:latest" >> $GITHUB_ENV
+#
+#    - name: Get the version
+#      if: startsWith(github.ref, 'refs/tags/v')
+#      run:
+#        echo "VERSION=${GITHUB_REF/refs\/tags\/v/}" >> $GITHUB_ENV
+#
+#    - name: Check out code into the Go module directory
+#      uses: actions/checkout@v3
+#
+#    - name: Set up QEMU
+#      uses: docker/setup-qemu-action@v2
+#
+#    - name: Set up Docker Buildx
+#      uses: docker/setup-buildx-action@v2
+#
+#    - name: Login to DockerHub
+#      uses: docker/login-action@v2
+#      with:
+#        username: ${{ secrets.DOCKERHUB_USERNAME }}
+#        password: ${{ secrets.DOCKERHUB_TOKEN }}
+#
+#    - name: Build container
+#      uses: docker/build-push-action@v3
+#      with:
+#        context: dockerfiles/massive
+#        push: true
+#        tags: ${{ env.TAG }}
+#        build-args: |
+#          sha: ${{ github.sha }}
+#          version: ${{ env.VERSION }}
+#          DOCKER_TAG: base-${{ env.VERSION }}
+#        platforms: ${{ matrix.platform }}
 
-    steps:
-    - name: Get the version
-      if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
-      run:
-        echo "TAG=$REPO:base-devel" >> $GITHUB_ENV
-
-    - name: Get the version
-      if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
-      run:
-        echo "VERSION=devel" >> $GITHUB_ENV
-
-    - name: Get the version
-      if: startsWith(github.ref, 'refs/tags/v')
-      run:
-        echo "TAG=$REPO:base-${GITHUB_REF/refs\/tags\/v/},$REPO:base" >> $GITHUB_ENV
-
-    - name: Get the version
-      if: startsWith(github.ref, 'refs/tags/v')
-      run:
-        echo "VERSION=${GITHUB_REF/refs\/tags\/v/}" >> $GITHUB_ENV
-
-    - name: Check out code into the Go module directory
-      uses: actions/checkout@v3
-
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v2
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
-
-    - name: Login to DockerHub
-      uses: docker/login-action@v2
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-    - name: Build master container
-      uses: docker/build-push-action@v2
-      with:
-        context: .
-        push: true
-        tags: ${{ env.TAG }}
-        build-args: |
-          sha: ${{ github.sha }}
-          version: ${{ env.VERSION }}
-        platforms: ${{ matrix.platform }}
-
-  build-docker-image-master:
-    runs-on: ubuntu-20.04
-    name: "Build Docker massive images"
-    needs: [ "build-docker-image-base" ]
-    env:
-      REPO: pufferpanel/pufferpanel
-      VERSION: base
-
-    timeout-minutes: 5
-
-    strategy:
-      matrix:
-        platform: [ "linux/amd64" ]
-
-    steps:
-    - name: Get the version
-      if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
-      run:
-        echo "TAG=$REPO:devel" >> $GITHUB_ENV
-
-    - name: Get the version
-      if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
-      run:
-        echo "VERSION=devel" >> $GITHUB_ENV
-
-    - name: Get the version
-      if: startsWith(github.ref, 'refs/tags/v')
-      run:
-        echo "TAG=$REPO:${GITHUB_REF/refs\/tags\/v/},$REPO:latest" >> $GITHUB_ENV
-
-    - name: Get the version
-      if: startsWith(github.ref, 'refs/tags/v')
-      run:
-        echo "VERSION=${GITHUB_REF/refs\/tags\/v/}" >> $GITHUB_ENV
-
-    - name: Check out code into the Go module directory
-      uses: actions/checkout@v3
-
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v2
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
-
-    - name: Login to DockerHub
-      uses: docker/login-action@v2
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-    - name: Build container
-      uses: docker/build-push-action@v3
-      with:
-        context: dockerfiles/massive
-        push: true
-        tags: ${{ env.TAG }}
-        build-args: |
-          sha: ${{ github.sha }}
-          version: ${{ env.VERSION }}
-          DOCKER_TAG: base-${{ env.VERSION }}
-        platforms: ${{ matrix.platform }}
-
-  build-docker-image-children:
-    runs-on: ubuntu-20.04
-    name: "Build Docker child images"
-    needs: ["build-docker-image-base"]
-    env:
-      REPO: pufferpanel/pufferpanel
-      VERSION: devel
-
-    timeout-minutes: 5
-
-    strategy:
-      matrix:
-        variant: ["java", "java8", "java16", "java17", "nodejs", "srcds"]
-        platform: ["linux/amd64"]
-
-    steps:
-    - name: Get the version
-      if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
-      run:
-        echo "TAG=$REPO:${{ matrix.variant }}-devel" >> $GITHUB_ENV
-
-    - name: Get the version
-      if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
-      run:
-        echo "VERSION=devel" >> $GITHUB_ENV
-
-    - name: Get the version
-      if: startsWith(github.ref, 'refs/tags/v')
-      run:
-        echo "TAG=$REPO:${{ matrix.variant }}-${GITHUB_REF/refs\/tags\/v/},$REPO:${{ matrix.variant }}" >> $GITHUB_ENV
-
-    - name: Get the version
-      if: startsWith(github.ref, 'refs/tags/v')
-      run:
-        echo "VERSION=${GITHUB_REF/refs\/tags\/v/}" >> $GITHUB_ENV
-
-    - name: Check out code into the Go module directory
-      uses: actions/checkout@v3
-
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v2
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
-
-    - name: Login to DockerHub
-      uses: docker/login-action@v2
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-    - name: Build container
-      uses: docker/build-push-action@v3
-      with:
-        context: dockerfiles/${{ matrix.variant }}
-        push: true
-        tags: ${{ env.TAG }}
-        build-args: |
-          sha: ${{ github.sha }}
-          version: ${{ env.VERSION }}
-          DOCKER_TAG: base-${{ env.VERSION }}
-        platforms: ${{ matrix.platform }}
+#  build-docker-image-children:
+#    runs-on: ubuntu-20.04
+#    name: "Build Docker child images"
+#    needs: ["build-docker-image-base"]
+#    env:
+#      REPO: pufferpanel/pufferpanel
+#      VERSION: devel
+#
+#    timeout-minutes: 5
+#
+#    strategy:
+#      matrix:
+#        variant: ["java", "java8", "java16", "java17", "nodejs", "srcds"]
+#        platform: ["linux/amd64"]
+#
+#    steps:
+#    - name: Get the version
+#      if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+#      run:
+#        echo "TAG=$REPO:${{ matrix.variant }}-devel" >> $GITHUB_ENV
+#
+#    - name: Get the version
+#      if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+#      run:
+#        echo "VERSION=devel" >> $GITHUB_ENV
+#
+#    - name: Get the version
+#      if: startsWith(github.ref, 'refs/tags/v')
+#      run:
+#        echo "TAG=$REPO:${{ matrix.variant }}-${GITHUB_REF/refs\/tags\/v/},$REPO:${{ matrix.variant }}" >> $GITHUB_ENV
+#
+#    - name: Get the version
+#      if: startsWith(github.ref, 'refs/tags/v')
+#      run:
+#        echo "VERSION=${GITHUB_REF/refs\/tags\/v/}" >> $GITHUB_ENV
+#
+#    - name: Check out code into the Go module directory
+#      uses: actions/checkout@v3
+#
+#    - name: Set up QEMU
+#      uses: docker/setup-qemu-action@v2
+#
+#    - name: Set up Docker Buildx
+#      uses: docker/setup-buildx-action@v2
+#
+#    - name: Login to DockerHub
+#      uses: docker/login-action@v2
+#      with:
+#        username: ${{ secrets.DOCKERHUB_USERNAME }}
+#        password: ${{ secrets.DOCKERHUB_TOKEN }}
+#
+#    - name: Build container
+#      uses: docker/build-push-action@v3
+#      with:
+#        context: dockerfiles/${{ matrix.variant }}
+#        push: true
+#        tags: ${{ env.TAG }}
+#        build-args: |
+#          sha: ${{ github.sha }}
+#          version: ${{ env.VERSION }}
+#          DOCKER_TAG: base-${{ env.VERSION }}
+#        platforms: ${{ matrix.platform }}
