@@ -14,9 +14,12 @@
 package auth
 
 import (
+	"encoding/json"
+	"errors"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/pufferpanel/pufferpanel/v2"
+	"github.com/pufferpanel/pufferpanel/v2/config"
 	"github.com/pufferpanel/pufferpanel/v2/middleware"
 	"github.com/pufferpanel/pufferpanel/v2/response"
 	"github.com/pufferpanel/pufferpanel/v2/services"
@@ -36,19 +39,39 @@ func LoginPost(c *gin.Context) {
 		return
 	}
 
-	user, session, otpNeeded, err := us.Login(request.Email, request.Password)
-	if response.HandleError(c, err, http.StatusBadRequest) {
+	httpRequest, err := http.NewRequest("GET", config.CloudflareGetIdentity.Value(), nil)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
 
-	if otpNeeded {
-		userSession := sessions.Default(c)
-		userSession.Set("user", user.Email)
-		userSession.Set("time", time.Now().Unix())
-		userSession.Save()
-		c.JSON(http.StatusOK, &LoginOtpResponse{
-			OtpNeeded: true,
-		})
+	httpRequest.AddCookie(&http.Cookie{
+		Name:  "CF_Authorization",
+		Value: request.CloudflareAuthorization,
+	})
+
+	httpResponse, err := http.DefaultClient.Do(httpRequest)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	if httpResponse.StatusCode != http.StatusOK {
+		response.HandleError(c, errors.New("invalid cloudflare response"), http.StatusUnauthorized)
+		return
+	}
+
+	var identity CloudflareIdentity
+	err = json.NewDecoder(httpResponse.Body).Decode(&identity)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	user, err := us.GetByEmail(identity.Email)
+	if response.HandleError(c, err, http.StatusUnauthorized) {
+		return
+	}
+
+	session, err := services.GenerateSession(user.ID)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
 
@@ -123,9 +146,13 @@ func OtpPost(c *gin.Context) {
 	c.JSON(http.StatusOK, data)
 }
 
+type CloudflareIdentity struct {
+	Name  string `json:"name"`
+	Email string `json:"email"`
+}
+
 type LoginRequestData struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	CloudflareAuthorization string `json:"cloudflareAuthorization"`
 }
 
 type LoginOtpResponse struct {

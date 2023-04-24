@@ -7,52 +7,12 @@
     offset-md="3"
     offset-sm="2"
   >
-    <v-card :loading="loginDisabled">
+    <v-card :loading="loading">
       <v-card-title class="d-flex justify-center">
-        <p v-text="$t('users.Login')" />
+        <p>Connexion avec Cloudflare Access</p>
       </v-card-title>
       <v-card-text>
-        <v-row>
-          <v-col cols="12">
-            <ui-input
-              v-model.trim="email"
-              autofocus
-              :label="$t('users.Email')"
-              :error-messages="errors.email"
-              icon="mdi-account"
-              type="email"
-              @keyup.enter="submit"
-            />
-          </v-col>
-          <v-col cols="12">
-            <ui-password-input
-              v-model="password"
-              :label="$t('users.Password')"
-              :error-messages="errors.password"
-              @keyup.enter="submit"
-            />
-          </v-col>
-          <v-col cols="12">
-            <v-btn
-              color="primary"
-              large
-              block
-              @click="submit"
-              v-text="$t('users.Login')"
-            />
-          </v-col>
-          <v-col
-            v-if="config.registrationEnabled"
-            cols="12"
-          >
-            <v-btn
-              text
-              block
-              :to="{name: 'Register'}"
-              v-text="$t('users.RegisterLink')"
-            />
-          </v-col>
-        </v-row>
+        Merci de patienter pendant l'authentification automatique de votre session en validant votre identité avec Cloudflare Access.
       </v-card-text>
     </v-card>
   </v-col>
@@ -65,51 +25,28 @@ export default {
   },
   data () {
     return {
-      email: '',
-      password: '',
-      errors: {
-        email: '',
-        password: ''
-      },
-      loginDisabled: false,
-      reauthReason: '',
-      registered: false,
-      showPassword: false
-    }
-  },
-  computed: {
-    canSubmit () {
-      return !(this.loginDisabled || this.email === '' || this.password === '')
+      loading: false
     }
   },
   mounted () {
-    if (this.hasAuth()) this.$router.push({ name: 'Servers' })
+    if (this.hasAuth()) {
+      this.$router.push({ name: 'Servers' })
+    } else {
+      this.submit()
+    }
   },
   methods: {
     async submit () {
-      this.errors.form = ''
-      this.errors.email = ''
-      this.errors.password = ''
-
-      if (!this.email) {
-        this.errors.email = this.$t('errors.ErrFieldRequired', { field: this.$t('users.Email') })
-        return
-      }
-
-      if (!this.password) {
-        this.errors.password = this.$t('errors.ErrFieldRequired', { field: this.$t('users.Password') })
-        return
-      }
-
-      this.loginDisabled = true
-      if (await this.$api.login(this.email, this.password) === true) {
+      this.loading = true
+      const cloudflareAuthorization = this.$api.getCloudflareAuthorization()
+      if (await this.$api.loginCloudflare(cloudflareAuthorization) === true) {
         if (this.hasScope('servers.view') || this.isAdmin()) {
-          this.$router.push({ name: 'Servers' })
+          await this.$router.push({ name: 'Servers' })
         } else {
-          this.$router.push({ name: 'Account' })
+          await this.$router.push({ name: 'Account' })
         }
       }
-      this.loginDisabled = false
+      this.loading = false
     }
   }
 }

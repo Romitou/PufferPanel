@@ -46,6 +46,8 @@ var BinariesFolder = asString("daemon.data.binaries", "binaries")
 var CrashLimit = asInt("daemon.data.crashLimit", 3)
 var WebSocketFileLimit = asInt64("daemon.data.maxWSDownloadSize", 1024*1024*20)
 
+var CloudflareGetIdentity = asString("cloudflareIdentity", "")
+
 // Deprecated: Removed in v3
 var TokenPrivate = asString("token.private", "private.pem")
 
