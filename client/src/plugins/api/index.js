@@ -21,10 +21,6 @@ class ApiClient extends EventEmitter {
     return Cookies.get('puffer_auth') || ''
   }
 
-  getCloudflareAuthorization () {
-    return Cookies.get('CF_Authorization') || ''
-  }
-
   updateCookie (token) {
     Cookies.set('puffer_auth', token, { sameSite: 'strict', secure: window.location.protocol === 'https:' })
   }
@@ -64,7 +60,7 @@ class ApiClient extends EventEmitter {
 
   loginCloudflare (cloudflareAuthorization, options = {}) {
     return this.withErrorHandling(async ctx => {
-      const res = (await ctx.$http.post('/auth/login', { cloudflareAuthorization })).data
+      const res = (await ctx.$http.post('/auth/login')).data
       this.saveLoginData(res.session, res.scopes || [], options.silent)
       return true
     }, { noToast: options.silent || options.noToast })
