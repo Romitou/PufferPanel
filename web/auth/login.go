@@ -32,13 +32,6 @@ func LoginPost(c *gin.Context) {
 	us := &services.User{DB: db}
 	ps := &services.Permission{DB: db}
 
-	request := &LoginRequestData{}
-
-	err := c.BindJSON(request)
-	if response.HandleError(c, err, http.StatusBadRequest) {
-		return
-	}
-
 	httpRequest, err := http.NewRequest("GET", config.CloudflareGetIdentity.Value(), nil)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
@@ -46,7 +39,7 @@ func LoginPost(c *gin.Context) {
 
 	httpRequest.AddCookie(&http.Cookie{
 		Name:  "CF_Authorization",
-		Value: request.CloudflareAuthorization,
+		Value: request.GetHeader("CF_Authorization"),
 	})
 
 	httpResponse, err := http.DefaultClient.Do(httpRequest)
@@ -149,10 +142,6 @@ func OtpPost(c *gin.Context) {
 type CloudflareIdentity struct {
 	Name  string `json:"name"`
 	Email string `json:"email"`
-}
-
-type LoginRequestData struct {
-	CloudflareAuthorization string `json:"cloudflareAuthorization"`
 }
 
 type LoginOtpResponse struct {
