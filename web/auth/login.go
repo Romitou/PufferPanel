@@ -39,7 +39,7 @@ func LoginPost(c *gin.Context) {
 
 	httpRequest.AddCookie(&http.Cookie{
 		Name:  "CF_Authorization",
-		Value: request.GetHeader("CF_Authorization"),
+		Value: c.GetHeader("CF_Authorization"),
 	})
 
 	httpResponse, err := http.DefaultClient.Do(httpRequest)
