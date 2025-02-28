@@ -32,11 +32,15 @@ func LoginPost(c *gin.Context) {
 		return
 	}
 
+	cookie, err := c.Cookie("CF_Authorization")
+	if response.HandleError(c, err, http.StatusBadRequest) {
+		return
+	}
+
 	httpRequest.AddCookie(&http.Cookie{
 		Name:  "CF_Authorization",
-		Value: c.GetHeader("CF_Authorization"),
+		Value: cookie,
 	})
-	log.Println(c.GetHeader("CF_Authorization"))
 
 	httpResponse, err := http.DefaultClient.Do(httpRequest)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
