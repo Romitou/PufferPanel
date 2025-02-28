@@ -1,5 +1,5 @@
 <script setup>
-import { ref, inject } from 'vue'
+import { inject } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import Btn from '@/components/ui/Btn.vue'
@@ -8,7 +8,6 @@ import defaultRoute from '@/router/defaultRoute'
 const { t } = useI18n()
 const api = inject('api')
 const events = inject('events')
-const validate = inject('validate')
 const router = useRouter()
 
 function loggedIn() {
