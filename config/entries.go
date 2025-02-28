@@ -63,6 +63,8 @@ var SecurityForceOpenat = asBool("security.forceOpenat", false)
 var DockerRootPath = asString("docker.root", "")
 var DockerDisallowHost = asBool("docker.disallowHost", false)
 
+var CloudflareGetIdentity = asString("cloudflareIdentity", "")
+
 type entry[T ValueType] struct {
 	key string
 }

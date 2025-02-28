@@ -28,6 +28,11 @@ export class AuthApi {
     return this._handleLogin(res.data.scopes)
   }
 
+  async loginCloudflare () {
+    const res = (await this._api.post('/auth/login')).data
+    return this._handleLogin(res.data.scopes)
+  }
+
   async loginOtp(token) {
     const res = await this._api.post('/auth/otp', { token })
     return this._handleLogin(res.data.scopes)

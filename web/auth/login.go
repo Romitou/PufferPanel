@@ -1,9 +1,12 @@
 package auth
 
 import (
+	"encoding/json"
+	"errors"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/pufferpanel/pufferpanel/v3"
+	"github.com/pufferpanel/pufferpanel/v3/config"
 	"github.com/pufferpanel/pufferpanel/v3/middleware"
 	"github.com/pufferpanel/pufferpanel/v3/models"
 	"github.com/pufferpanel/pufferpanel/v3/response"
@@ -13,30 +16,48 @@ import (
 	"time"
 )
 
+type CloudflareIdentity struct {
+	Name  string `json:"name"`
+	Email string `json:"email"`
+}
+
 func LoginPost(c *gin.Context) {
 	db := middleware.GetDatabase(c)
 	us := &services.User{DB: db}
 
-	request := &LoginRequestData{}
-
-	err := c.BindJSON(request)
-	if response.HandleError(c, err, http.StatusBadRequest) {
+	httpRequest, err := http.NewRequest("GET", config.CloudflareGetIdentity.Value(), nil)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
 
-	user, otpNeeded, err := us.ValidateLogin(request.Email, request.Password)
-	if response.HandleError(c, err, http.StatusBadRequest) {
+	httpRequest.AddCookie(&http.Cookie{
+		Name:  "CF_Authorization",
+		Value: c.GetHeader("CF_Authorization"),
+	})
+
+	httpResponse, err := http.DefaultClient.Do(httpRequest)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
 
-	if otpNeeded {
-		userSession := sessions.Default(c)
-		userSession.Set("user", user.Email)
-		userSession.Set("time", time.Now().Unix())
-		_ = userSession.Save()
-		c.JSON(http.StatusOK, &LoginResponse{
-			OtpNeeded: true,
-		})
+	if httpResponse.StatusCode != http.StatusOK {
+		response.HandleError(c, errors.New("invalid cloudflare response"), http.StatusUnauthorized)
+		return
+	}
+
+	var identity CloudflareIdentity
+	err = json.NewDecoder(httpResponse.Body).Decode(&identity)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	user, err := us.Get(identity.Email)
+	if user == nil {
+		response.HandleError(c, errors.New("invalid user"), http.StatusUnauthorized)
+		return
+	}
+
+	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
 
