@@ -462,7 +462,7 @@ jobs:
     runs-on: ubuntu-latest
     name: "Cleanup"
 
-    needs: [ build-shared, build-linux-amd64-binaries, release ]
+    needs: [ build-shared, build-linux-amd64-binaries ]
 
     continue-on-error: true
 
