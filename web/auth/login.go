@@ -12,6 +12,7 @@ import (
 	"github.com/pufferpanel/pufferpanel/v3/response"
 	"github.com/pufferpanel/pufferpanel/v3/scopes"
 	"github.com/pufferpanel/pufferpanel/v3/services"
+	"log"
 	"net/http"
 	"time"
 )
@@ -25,6 +26,7 @@ func LoginPost(c *gin.Context) {
 	db := middleware.GetDatabase(c)
 	us := &services.User{DB: db}
 
+	log.Println(config.CloudflareGetIdentity.Value())
 	httpRequest, err := http.NewRequest("GET", config.CloudflareGetIdentity.Value(), nil)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
@@ -34,6 +36,7 @@ func LoginPost(c *gin.Context) {
 		Name:  "CF_Authorization",
 		Value: c.GetHeader("CF_Authorization"),
 	})
+	log.Println(c.GetHeader("CF_Authorization"))
 
 	httpResponse, err := http.DefaultClient.Do(httpRequest)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
@@ -41,6 +44,9 @@ func LoginPost(c *gin.Context) {
 	}
 
 	if httpResponse.StatusCode != http.StatusOK {
+		log.Println("Invalid response from cloudflare", httpResponse.StatusCode)
+		log.Println(httpRequest)
+		log.Println(httpResponse)
 		response.HandleError(c, errors.New("invalid cloudflare response"), http.StatusUnauthorized)
 		return
 	}
