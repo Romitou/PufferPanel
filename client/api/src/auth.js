@@ -29,7 +29,7 @@ export class AuthApi {
   }
 
   async loginCloudflare () {
-    const res = (await this._api.post('/auth/login')).data
+    const res = await this._api.post('/auth/login')
     return this._handleLogin(res.data.scopes)
   }
 

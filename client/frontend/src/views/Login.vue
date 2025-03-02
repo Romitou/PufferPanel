@@ -1,5 +1,5 @@
 <script setup>
-import { inject } from 'vue'
+import {inject, onMounted, onUnmounted, ref} from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import Btn from '@/components/ui/Btn.vue'
@@ -9,6 +9,7 @@ const { t } = useI18n()
 const api = inject('api')
 const events = inject('events')
 const router = useRouter()
+const intervalId = ref(null);
 
 function loggedIn() {
   try {
@@ -26,8 +27,16 @@ async function login() {
     loggedIn()
   }
 }
+onMounted(() => {
+  login();
+  intervalId.value = setInterval(() => {
+    login();
+  }, 1000)
+});
 
-login();
+onUnmounted(() => {
+  clearInterval(intervalId.value)
+});
 </script>
 
 <template>
