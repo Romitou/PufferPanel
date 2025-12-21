@@ -1,26 +1,27 @@
+@use '../mixins' as *;
+@use '../icons' as *;
+
 .tabs {
   max-width: calc(100vw - 4em);
   position: relative;
 
   .scroll-left {
-    @media (hover: none) and (pointer: coarse) {
-      display: none;
-    }
-
     @include icon;
     @include icon-name(chevron-left);
     @include raised;
     @include clickable;
-    background-color: var(--background);
-    width: 1.125em;
-    height: 1.125em;
-    border-radius: 50%;
-    position: absolute;
-    left: -0.325em;
-    top: 0.625em;
-    z-index: 2;
-    text-align: center;
-    font-size: 1.8em;
+    & {
+      background-color: var(--background);
+      width: 1.125em;
+      height: 1.125em;
+      border-radius: 50%;
+      position: absolute;
+      left: -0.325em;
+      top: 0.625em;
+      z-index: 2;
+      text-align: center;
+      font-size: 1.8em;
+    }
     &:hover::after {
       content: '';
       display: inline-block;
@@ -32,27 +33,29 @@
       left: 0;
       top: -1.125em;
     }
-  }
 
-  .scroll-right {
     @media (hover: none) and (pointer: coarse) {
       display: none;
     }
+  }
 
+  .scroll-right {
     @include icon;
     @include icon-name(chevron-right);
     @include raised;
     @include clickable;
-    background-color: var(--background);
-    width: 1.125em;
-    height: 1.125em;
-    border-radius: 50%;
-    position: absolute;
-    right: -0.325em;
-    top: 0.625em;
-    z-index: 1;
-    text-align: center;
-    font-size: 1.8em;
+    & {
+      background-color: var(--background);
+      width: 1.125em;
+      height: 1.125em;
+      border-radius: 50%;
+      position: absolute;
+      right: -0.325em;
+      top: 0.625em;
+      z-index: 1;
+      text-align: center;
+      font-size: 1.8em;
+    }
     &:hover::after {
       content: '';
       display: inline-block;
@@ -64,6 +67,10 @@
       right: 0;
       top: -1.125em;
     }
+
+    @media (hover: none) and (pointer: coarse) {
+      display: none;
+    }
   }
 
   .tab.inactive {
@@ -72,6 +79,26 @@
 
   .tab.active {
     display: revert;
+  }
+}
+
+@include high-contrast-mode {
+  .tabs .scroll-left, .tabs .scroll-right {
+    display: inline-block;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .tabs .scroll-left ~ .tab-buttons {
+    box-shadow: inset 5px 0 4px -4px var(--scrollshadow-color);
+  }
+
+  .tabs .scroll-right ~ .tab-buttons {
+    box-shadow: inset -5px 0 4px -4px var(--scrollshadow-color);
+  }
+
+  .tabs .scroll-left ~ .scroll-right ~ .tab-buttons {
+    box-shadow: inset 5px 0 4px -4px var(--scrollshadow-color), inset -5px 0 4px -4px var(--scrollshadow-color);
   }
 }
 
@@ -112,6 +139,15 @@
       .title {
         font-size: 0.8em;
       }
+    }
+  }
+}
+
+@include high-contrast-mode {
+  .tab-button:hover {
+    background-color: transparent;
+    .title {
+      text-decoration: underline dashed;
     }
   }
 }

@@ -4,6 +4,7 @@
   "Console": "主控台",
   "SFTPInfo": "SFTP 資訊",
   "Start": "啟動",
+  "Restart": "Restart",
   "Stop": "停止",
   "Kill": "強制停止",
   "Install": "安裝",
@@ -31,6 +32,7 @@
   "NoSettings": "This server does not have any settings you can change",
   "Delete": "刪除伺服器",
   "ConfirmDelete": "您確定要刪除伺服器嗎？（這個操作無法取消）",
+  "Deleting": "Removing Server, please wait...",
   "Deleted": "伺服器已刪除",
   "SftpConnection": "連接 SFTP",
   "EditDefinition": "編輯伺服器定義",
@@ -50,5 +52,11 @@
     "autoStart": "Start the server when the node starts",
     "autoRestartOnGraceful": "Restart the server when it stops normally",
     "autoRestartOnCrash": "Restart the server when it crashes"
-  }
+  },
+  "IncompatibleTemplates": "Incompatible templates",
+  "IncompatibleTemplatesDescription": "These templates are incompatible with at least one of your previous selections",
+  "IncompatibleArch": "Incompatible with architecture '{arch}'",
+  "IncompatibleOs": "Incompatible with OS '{os}'",
+  "IncompatibleEnv": "Incompatible with environment '{env}'",
+  "AdvancedSettings": "Advanced Settings"
 }

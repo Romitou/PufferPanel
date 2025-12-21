@@ -52,7 +52,6 @@ func SplitArguments(source string) (cmd string, arguments []string) {
 		case '"':
 			{
 				inQuote = !inQuote
-				results[len(results)-1] += "\""
 			}
 		case ' ':
 			{
@@ -81,4 +80,19 @@ func SplitArguments(source string) (cmd string, arguments []string) {
 	cmd = results[0]
 	arguments = results[1:]
 	return
+}
+
+func MergeArguments(arguments []string) string {
+	var result string
+	for _, v := range arguments {
+		if result != "" {
+			result += " "
+		}
+		if strings.Contains(v, " ") && !strings.HasPrefix(v, "\"") {
+			result += "\"" + v + "\""
+		} else {
+			result += v
+		}
+	}
+	return result
 }

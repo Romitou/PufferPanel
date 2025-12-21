@@ -22,9 +22,9 @@ import (
 	"golang.org/x/crypto/ssh"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -294,7 +294,6 @@ func TestServers(t *testing.T) {
 				if !assert.Equal(t, http.StatusOK, response.Code) {
 					return
 				}
-				//TODO: Check to make sure our user above was added
 				var data []*models.UserPermissionsView
 				err := json.NewDecoder(response.Body).Decode(&data)
 				if !assert.NoError(t, err) {
@@ -309,6 +308,88 @@ func TestServers(t *testing.T) {
 					if v.Email == loginNoLoginUser.Email {
 						var expectedScopes = []*scopes.Scope{
 							scopes.ScopeServerView, scopes.ScopeServerViewData,
+						}
+						if !assert.Equal(t, expectedScopes, v.Scopes) {
+							return
+						}
+						found = true
+					}
+				}
+
+				if !found {
+					assert.Fail(t, "Failed to locate user")
+				}
+			})
+
+			t.Run("GrantUserPermissions", func(t *testing.T) {
+				var data = []byte(`{"scopes": ["server.view", "server.data.view", "server.start", "server.users.view", "server.users.edit"]}`)
+				response := CallAPIRaw("PUT", "/api/servers/"+ServerId+"/user/"+loginNoLoginUser.Email, data, session)
+				if !assert.Equal(t, http.StatusNoContent, response.Code) {
+					return
+				}
+
+				response = CallAPIRaw("GET", "/api/servers/"+ServerId+"/user", nil, session)
+				if !assert.Equal(t, http.StatusOK, response.Code) {
+					return
+				}
+				var perms []*models.UserPermissionsView
+				err := json.NewDecoder(response.Body).Decode(&perms)
+				if !assert.NoError(t, err) {
+					return
+				}
+
+				if assert.NotEmpty(t, perms) {
+					return
+				}
+				found := false
+				for _, v := range perms {
+					if v.Email == loginNoLoginUser.Email {
+						var expectedScopes = []*scopes.Scope{
+							scopes.ScopeServerView, scopes.ScopeServerViewData, scopes.ScopeServerStart, scopes.ScopeServerUserView, scopes.ScopeServerUserEdit,
+						}
+						if !assert.Equal(t, expectedScopes, v.Scopes) {
+							return
+						}
+						found = true
+					}
+				}
+
+				if !found {
+					assert.Fail(t, "Failed to locate user")
+				}
+			})
+
+			t.Run("SubuserGrantUserPermissions", func(t *testing.T) {
+				//first get a session for the fake user
+				testSession, err := createSession(db, loginNoLoginUser)
+				if !assert.NoError(t, err) {
+					return
+				}
+
+				var data = []byte(`{"scopes": ["server.view", "server.start", "server.stop"]}`)
+				response := CallAPIRaw("PUT", "/api/servers/"+ServerId+"/user/"+loginNoAdminWithServersUser.Email, data, testSession)
+				if !assert.Equal(t, http.StatusNoContent, response.Code) {
+					return
+				}
+
+				response = CallAPIRaw("GET", "/api/servers/"+ServerId+"/user", nil, session)
+				if !assert.Equal(t, http.StatusOK, response.Code) {
+					return
+				}
+				var perms []*models.UserPermissionsView
+				err = json.NewDecoder(response.Body).Decode(&perms)
+				if !assert.NoError(t, err) {
+					return
+				}
+
+				if assert.NotEmpty(t, perms) {
+					return
+				}
+				found := false
+				for _, v := range perms {
+					if v.Email == loginNoAdminWithServersUser.Email {
+						var expectedScopes = []*scopes.Scope{
+							scopes.ScopeServerView, scopes.ScopeServerStart,
 						}
 						if !assert.Equal(t, expectedScopes, v.Scopes) {
 							return
@@ -585,53 +666,6 @@ func TestServers(t *testing.T) {
 				})
 			})
 
-			t.Run("DeleteFile", func(t *testing.T) {
-				filename := "file.delete.test"
-
-				fileLocation := filepath.Join(serverDir, filename)
-				tmpFile, err := os.Create(fileLocation)
-				if !assert.NoError(t, err) {
-					return
-				}
-				utils.Close(tmpFile)
-
-				response := CallAPIRaw("DELETE", "/api/servers/"+ServerId+"/file/"+filename, nil, session)
-				if !assert.Equal(t, http.StatusNoContent, response.Code) {
-					return
-				}
-
-				_, err = os.Stat(fileLocation)
-				if !assert.ErrorIs(t, err, os.ErrNotExist) {
-					return
-				}
-			})
-
-			t.Run("DeleteFileWithURIEncoding", func(t *testing.T) {
-				if runtime.GOOS == "windows" {
-					t.Skipf("Windows doesn't support file with URI encoding")
-					return
-				}
-
-				filename := "file.delete.test?id=12345"
-
-				fileLocation := filepath.Join(serverDir, filename)
-				tmpFile, err := os.Create(fileLocation)
-				if !assert.NoError(t, err) {
-					return
-				}
-				utils.Close(tmpFile)
-
-				response := CallAPIRaw("DELETE", "/api/servers/"+ServerId+"/file/"+filename, nil, session)
-				if !assert.Equal(t, http.StatusNoContent, response.Code) {
-					return
-				}
-
-				_, err = os.Stat(fileLocation)
-				if !assert.ErrorIs(t, err, os.ErrNotExist) {
-					return
-				}
-			})
-
 			var taskId = "testtask"
 			t.Run("CreateTask", func(t *testing.T) {
 				response := CallAPIRaw("PUT", "/api/servers/"+ServerId+"/tasks/"+taskId, TaskDefinition, session)
@@ -688,6 +722,20 @@ func TestServers(t *testing.T) {
 				assert.FileExists(t, eulaFile)
 			})
 
+			t.Run("EditTask", func(t *testing.T) {
+				response := CallAPIRaw("PUT", "/api/servers/"+ServerId+"/tasks/"+taskId, TaskDefinition, session)
+				if !assert.Equal(t, http.StatusNoContent, response.Code) {
+					return
+				}
+				if !assert.Len(t, servers.GetFromCache(ServerId).Scheduler.GetTasks(), 1) {
+					return
+				}
+				e := servers.GetFromCache(ServerId).Scheduler.GetExecutor()
+				if !assert.Len(t, e.Jobs(), 1) {
+					return
+				}
+			})
+
 			t.Run("DeleteTask", func(t *testing.T) {
 				response := CallAPIRaw("DELETE", "/api/servers/"+ServerId+"/tasks/"+taskId, nil, session)
 				if !assert.Equal(t, http.StatusNoContent, response.Code) {
@@ -705,6 +753,76 @@ func TestServers(t *testing.T) {
 					return
 				}
 				assert.Empty(t, res.Tasks)
+			})
+
+			t.Run("FileManager", func(t *testing.T) {
+				var fileName = "test-file-to-make"
+				var folderName = "test-folder-creation"
+				var fileContents = []byte("this is a test file")
+
+				t.Run("CreateFolder", func(t *testing.T) {
+					response := CallAPIRaw("PUT", "/api/servers/"+ServerId+"/file/"+folderName+"?folder=true", nil, session)
+					if !assert.Equal(t, http.StatusNoContent, response.Code) {
+						return
+					}
+					if !assert.DirExists(t, filepath.Join(serverDir, folderName)) {
+						return
+					}
+				})
+
+				t.Run("DeleteFolder", func(t *testing.T) {
+					response := CallAPIRaw("DELETE", "/api/servers/"+ServerId+"/file/"+folderName, nil, session)
+					if !assert.Equal(t, http.StatusNoContent, response.Code) {
+						return
+					}
+					if !assert.NoDirExists(t, filepath.Join(serverDir, folderName)) {
+						return
+					}
+				})
+
+				t.Run("CreateFile", func(t *testing.T) {
+					response := CallAPIRaw("PUT", "/api/servers/"+ServerId+"/file/"+fileName, fileContents, session)
+					if !assert.Equal(t, http.StatusNoContent, response.Code) {
+						return
+					}
+					if !assert.FileExists(t, filepath.Join(serverDir, fileName)) {
+						return
+					}
+				})
+
+				t.Run("DeleteFile", func(t *testing.T) {
+					response := CallAPIRaw("DELETE", "/api/servers/"+ServerId+"/file/"+fileName, nil, session)
+					if !assert.Equal(t, http.StatusNoContent, response.Code) {
+						return
+					}
+
+					if !assert.NoFileExists(t, filepath.Join(serverDir, fileName)) {
+						return
+					}
+				})
+
+				t.Run("DeleteFileWithURIEncoding", func(t *testing.T) {
+					filename := "file.delete.test?id=12345"
+
+					fileLocation := filepath.Join(serverDir, filename)
+					tmpFile, err := os.Create(fileLocation)
+					if !assert.NoError(t, err) {
+						return
+					}
+					utils.Close(tmpFile)
+
+					u := url.QueryEscape(filename)
+
+					response := CallAPIRaw("DELETE", "/api/servers/"+ServerId+"/file/"+u, nil, session)
+					if !assert.Equal(t, http.StatusNoContent, response.Code) {
+						return
+					}
+
+					_, err = os.Stat(fileLocation)
+					if !assert.ErrorIs(t, err, os.ErrNotExist) {
+						return
+					}
+				})
 			})
 
 			t.Run("Delete", func(t *testing.T) {

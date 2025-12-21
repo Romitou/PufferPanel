@@ -17,9 +17,11 @@ var DatabaseLoggingEnabled = asBool("panel.database.log", false)
 var WebRoot = asString("panel.web.files", "www")
 
 var PanelWebCookiesSecure = asBool("panel.web.cookies.secure", false)
-var PanelWebCookiesHttpOnly = asBool("panel.web.cookies.httpOnly", false)
+var PanelWebCookiesHttpOnly = asBool("panel.web.cookies.httpOnly", true)
 var PanelWebCookiesDomain = asString("panel.web.cookies.domain", "")
 var PanelWebCookiesAge = asInt("panel.web.cookies.age", 86400*30)
+var PanelWebCookiesSameSite = asString("panel.web.cookies.sameSite", "Strict")
+var PanelWebCookiesPath = asString("panel.web.cookies.path", "/")
 
 var EmailTemplateFolder = asString("panel.email.templateFolder", "")
 var EmailProvider = asString("panel.email.provider", "")
@@ -54,11 +56,14 @@ var CrashLimit = asInt("daemon.data.crashLimit", 3)
 var CurseForgeKey = asString("daemon.curseforge.key", curseforgeKey)
 var DataRootFolder = asString("daemon.data.root", "")
 var DepotDownloaderVersion = asString("daemon.depotDownloader.version", "latest")
+var DepotDownloaderDisableLancache = asBool("daemon.depotDownloader.disableLancache", false)
 
 var TokenPublicUrl = asString("token.public", "")
 
-var SecurityForceOpenat2 = asBool("security.forceOpenat2", false)
 var SecurityForceOpenat = asBool("security.forceOpenat", false)
+var SecurityTrustedProxies = asStringArray("security.trustedProxies", []string{})
+var SecurityTrustedProxyHeader = asString("security.trustedProxyHeader", "")
+var SecurityDisableUnshare = asBool("security.disableUnshare", false)
 
 var DockerRootPath = asString("docker.root", "")
 var DockerDisallowHost = asBool("docker.disallowHost", false)
@@ -78,15 +83,15 @@ type BoolEntry struct {
 type IntEntry struct {
 	entry[int]
 }
-type Int64Entry struct {
-	entry[int64]
+type StringArrayEntry struct {
+	entry[[]string]
 }
 type DataFolder struct {
 	StringEntry
 }
 
 type ValueType interface {
-	int | int64 | bool | string
+	int | int64 | bool | string | []string
 }
 
 func (se StringEntry) Value() string {
@@ -108,8 +113,8 @@ func (se BoolEntry) Value() bool {
 func (se IntEntry) Value() int {
 	return cast.ToInt(se.get())
 }
-func (se Int64Entry) Value() int64 {
-	return cast.ToInt64(se.get())
+func (se StringArrayEntry) Value() []string {
+	return cast.ToStringSlice(se.get())
 }
 
 func (se entry[T]) Key() string {
@@ -137,8 +142,8 @@ func asBool(key string, def bool) BoolEntry {
 func asInt(key string, def int) IntEntry {
 	return IntEntry{entry: as[int](key, def)}
 }
-func asInt64(key string, def int64) Int64Entry {
-	return Int64Entry{entry: as[int64](key, def)}
+func asStringArray(key string, def []string) StringArrayEntry {
+	return StringArrayEntry{entry: as[[]string](key, def)}
 }
 
 func as[T ValueType](key string, def T) entry[T] {

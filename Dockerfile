@@ -1,7 +1,7 @@
 ###
 # Builder container
 ###
-FROM --platform=$BUILDPLATFORM node:20-alpine AS node
+FROM --platform=$BUILDPLATFORM node:22-alpine AS node
 
 WORKDIR /build
 COPY client .
@@ -14,7 +14,7 @@ RUN yarn install && \
 
 FROM --platform=$BUILDPLATFORM tonistiigi/xx AS xx
 
-FROM --platform=$BUILDPLATFORM golang:1.23-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS builder
 
 RUN apk add clang lld
 COPY --from=xx / /
@@ -41,7 +41,7 @@ RUN go mod download && go mod verify
 
 COPY . .
 
-RUN ~/go/bin/swag init --md . -o web/swagger -g web/loader.go
+RUN ~/go/bin/swag init --pd --md . -o web/swagger -g web/loader.go
 
 COPY --from=node /build/frontend/dist /build/pufferpanel/client/frontend/dist
 
@@ -70,7 +70,7 @@ RUN mkdir -p /etc/pufferpanel && \
 ENV GIN_MODE=release \
     PUFFER_PLATFORM="docker" \
     PUFFER_DOCKER_ROOT="" \
-    PUFFER_DOCKER_DISALLOW_HOST=true
+    PUFFER_DOCKER_DISALLOWHOST=true
 
 #COPY --from=builder --chown=pufferpanel:pufferpanel --chmod=755 /pufferpanel /pufferpanel/bin
 #COPY --from=builder --chown=pufferpanel:pufferpanel --chmod=755 /build/pufferpanel/entrypoint.sh /pufferpanel/bin/entrypoint.sh

@@ -17,7 +17,6 @@
 package resolveneoforgeversion
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -35,13 +34,15 @@ type ResolveNeoForgeVersion struct {
 func (op ResolveNeoForgeVersion) Run(args pufferpanel.RunOperatorArgs) pufferpanel.OperationResult {
 	//if a specific version wasn't specified, we have to dig around through the files....
 	if op.Version == "" {
-		dir := filepath.Join(args.Environment.GetRootDirectory(), "libraries", "net", "neoforged", "neoforge")
+		dir := filepath.Join(args.Environment.GetRootDirectory(), "libraries", "net", "neoforged", "neoforgedl")
 		folders, err := os.ReadDir(dir)
+		if os.IsNotExist(err) {
+			return pufferpanel.OperationResult{VariableOverrides: map[string]interface{}{
+				op.OutputVariable: op.Version,
+			}}
+		}
 		if err != nil {
 			return pufferpanel.OperationResult{Error: err}
-		}
-		if len(folders) == 0 {
-			return pufferpanel.OperationResult{Error: errors.New("neoforge not installed")}
 		}
 
 		var ver *version.Version
@@ -71,7 +72,9 @@ func (op ResolveNeoForgeVersion) Run(args pufferpanel.RunOperatorArgs) pufferpan
 		}
 	}
 
-	args.Environment.DisplayToConsole(true, "Resolved NeoForge Version: %s", op.Version)
+	if op.Version != "" {
+		args.Environment.DisplayToConsole(true, "Resolved NeoForge Version: %s", op.Version)
+	}
 
 	return pufferpanel.OperationResult{VariableOverrides: map[string]interface{}{
 		op.OutputVariable: op.Version,

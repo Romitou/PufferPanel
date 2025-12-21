@@ -55,19 +55,21 @@ func (c SteamGameDl) Run(args pufferpanel.RunOperatorArgs) pufferpanel.Operation
 	manifestFolder := filepath.Join(env.GetRootDirectory(), ".manifest")
 	_ = os.RemoveAll(manifestFolder)
 
-	cmdArgs := []string{"-app", c.AppId, "-dir", ".manifest", "-loginid", loginId, "-manifest-only"}
+	cmdArgs := []string{filepath.Join(rootBinaryFolder, "depotdownloader", DepotDownloaderBinary), "-app", c.AppId, "-dir", ".manifest", "-loginid", loginId, "-manifest-only"}
 	if c.Username != "" {
 		cmdArgs = append(cmdArgs, "-username", c.Username, "-remember-password")
 		if c.Password != "" {
 			cmdArgs = append(cmdArgs, "-password", c.Password)
 		}
 	}
+	if !config.DepotDownloaderDisableLancache.Value() {
+		cmdArgs = append(cmdArgs, "-use-lancache")
+	}
 	cmdArgs = append(cmdArgs, c.ExtraArgs...)
 
 	ch := make(chan int, 1)
 	steps := pufferpanel.ExecutionData{
-		Command:   filepath.Join(rootBinaryFolder, "depotdownloader", DepotDownloaderBinary),
-		Arguments: cmdArgs,
+		Command: utils.MergeArguments(cmdArgs),
 		Callback: func(exitCode int) {
 			ch <- exitCode
 		},
@@ -83,7 +85,7 @@ func (c SteamGameDl) Run(args pufferpanel.RunOperatorArgs) pufferpanel.Operation
 	}
 
 	//download game itself now
-	cmdArgs = []string{"-app", c.AppId, "-dir", ".", "-loginid", loginId, "-validate"}
+	cmdArgs = []string{filepath.Join(rootBinaryFolder, "depotdownloader", DepotDownloaderBinary), "-app", c.AppId, "-dir", ".", "-loginid", loginId, "-validate"}
 	if c.Username != "" {
 		cmdArgs = append(cmdArgs, "-username", c.Username, "-remember-password")
 		if c.Password != "" {
@@ -91,13 +93,16 @@ func (c SteamGameDl) Run(args pufferpanel.RunOperatorArgs) pufferpanel.Operation
 		}
 	}
 
-	if c.ExtraArgs != nil && len(c.ExtraArgs) > 0 {
+	if !config.DepotDownloaderDisableLancache.Value() {
+		cmdArgs = append(cmdArgs, "-use-lancache")
+	}
+
+	if len(c.ExtraArgs) > 0 {
 		cmdArgs = append(cmdArgs, c.ExtraArgs...)
 	}
 
 	steps = pufferpanel.ExecutionData{
-		Command:   filepath.Join(rootBinaryFolder, "depotdownloader", DepotDownloaderBinary),
-		Arguments: cmdArgs,
+		Command: utils.MergeArguments(cmdArgs),
 		Callback: func(exitCode int) {
 			ch <- exitCode
 		},
@@ -134,7 +139,7 @@ func (c SteamGameDl) Run(args pufferpanel.RunOperatorArgs) pufferpanel.Operation
 	return pufferpanel.OperationResult{Error: nil}
 }
 
-func downloadMetadata(env pufferpanel.Environment) error {
+func downloadMetadata(env *pufferpanel.Environment) error {
 	response, err := pufferpanel.HttpGet(SteamMetadataLink)
 	defer utils.CloseResponse(response)
 	if err != nil {

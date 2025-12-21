@@ -9,16 +9,17 @@ type Server struct {
 	Identifier            string                    `json:"id,omitempty"`
 	Display               string                    `json:"display,omitempty"`
 	Icon                  string                    `json:"icon,omitempty"`
-	Variables             map[string]Variable       `json:"data,omitempty"`
+	Variables             map[string]Variable       `json:"data"`
 	Groups                []Group                   `json:"groups,omitempty"`
-	Installation          []ConditionalMetadataType `json:"install,omitempty"`
-	Uninstallation        []ConditionalMetadataType `json:"uninstall,omitempty"`
+	Installation          []ConditionalMetadataType `json:"install"`
+	Uninstallation        []ConditionalMetadataType `json:"uninstall"`
 	Execution             Execution                 `json:"run"`
 	Environment           MetadataType              `json:"environment"`
 	SupportedEnvironments []MetadataType            `json:"supportedEnvironments,omitempty"`
 	Requirements          Requirements              `json:"requirements,omitempty"`
 	Stats                 MetadataType              `json:"stats,omitempty"`
 	Query                 MetadataType              `json:"query,omitempty"`
+	KeepAlive             KeepAlive                 `json:"keepAlive,omitempty"`
 } //@name ServerDefinition
 
 type Execution struct {
@@ -58,6 +59,11 @@ type Group struct {
 	Order       int      `json:"order"`
 } //@name Group
 
+type KeepAlive struct {
+	Frequency string `json:"frequency"`
+	Command   string `json:"command"`
+} //@name KeepAlive
+
 func (s *Server) CopyFrom(replacement *Server) {
 	s.Variables = replacement.Variables
 	s.Type = replacement.Type
@@ -78,7 +84,6 @@ func (s *Server) DataToMap() map[string]interface{} {
 	for k, v := range s.Variables {
 		result[k] = v.Value
 	}
-	result["serverId"] = s.Identifier
 
 	return result
 }
@@ -89,4 +94,6 @@ type DaemonServer interface {
 	Extract(source, destination string) error
 
 	ArchiveItems(files []string, destination string) error
+
+	DataToMap() map[string]interface{}
 }

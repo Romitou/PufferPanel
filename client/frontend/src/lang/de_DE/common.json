@@ -34,7 +34,7 @@
     "mode": {
       "Light": "Hell",
       "Dark": "Dunkel",
-      "DarkHighContrast": "Dark (High Contrast)",
+      "DarkHighContrast": "Dunkel (Hoher Kontrast)",
       "Auto": "Auto"
     },
     "BaseColor": "Standardfarbe",
@@ -48,14 +48,14 @@
       "Grid": "Raster",
       "List": "Liste"
     },
-    "FontSize": "Font Size",
+    "FontSize": "Schriftgröße",
     "fontSize": {
-      "Default": "Default"
+      "Default": "Standard"
     },
-    "FontFace": "Font Face",
+    "FontFace": "Schriftart",
     "fontFace": {
-      "Default": "Default",
-      "A11y": "Accessibility optimized"
+      "Default": "Standard",
+      "A11y": "Für Barrierefreiheit optimiert"
     }
   },
   "NoResults": "Keine Ergebnisse",

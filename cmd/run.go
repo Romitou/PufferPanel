@@ -62,11 +62,22 @@ func internalRun() (terminate chan bool, success bool) {
 		terminate <- true
 	}()
 
-	utils.DetermineKernelSupport()
-
 	router := gin.New()
 	router.Use(gin.Recovery())
 	router.Use(gin.LoggerWithWriter(logging.Info.Writer()))
+
+	//do not trust proxies by default
+	router.SetTrustedProxies(nil)
+	if proxies := config.SecurityTrustedProxies.Value(); proxies != nil {
+		err := router.SetTrustedProxies(proxies)
+		if err != nil {
+			logging.Error.Printf("Failed to add trusted proxies: %s", err.Error())
+		}
+	}
+	if header := config.SecurityTrustedProxyHeader.Value(); header != "" {
+		router.TrustedPlatform = header
+	}
+
 	gin.DefaultWriter = logging.Info.Writer()
 	gin.DefaultErrorWriter = logging.Error.Writer()
 	pufferpanel.Engine = router
@@ -81,7 +92,7 @@ func internalRun() (terminate chan bool, success bool) {
 			return
 		}
 
-		err = database.Migrate(db)
+		err = database.Upgrade(db, false)
 		if err != nil {
 			logging.Error.Printf("error upgrading database: %s", err.Error())
 			terminate <- true
@@ -103,14 +114,29 @@ func internalRun() (terminate chan bool, success bool) {
 			terminate <- true
 			return
 		}
+
+		sameSite := config.PanelWebCookiesSameSite.Value()
+		var sameSiteId http.SameSite
+
+		switch sameSite {
+		case "Strict":
+			sameSiteId = http.SameSiteStrictMode
+		case "None":
+			sameSiteId = http.SameSiteNoneMode
+		case "Lax":
+			sameSiteId = http.SameSiteLaxMode
+		default:
+			sameSiteId = http.SameSiteStrictMode
+		}
+
 		sessionStore := cookie.NewStore(result)
 		sessionStore.Options(sessions.Options{
-			Path:     "/",
+			Path:     config.PanelWebCookiesPath.Value(),
 			Domain:   config.PanelWebCookiesDomain.Value(),
 			MaxAge:   config.PanelWebCookiesAge.Value(),
 			Secure:   config.PanelWebCookiesSecure.Value(),
 			HttpOnly: config.PanelWebCookiesHttpOnly.Value(),
-			SameSite: http.SameSiteNoneMode,
+			SameSite: sameSiteId,
 		})
 		router.Use(sessions.Sessions("session", sessionStore))
 
@@ -186,6 +212,8 @@ func panel() {
 }
 
 func daemon() error {
+	utils.DetermineKernelSupport()
+
 	sftp.Run()
 
 	var err error
@@ -206,6 +234,11 @@ func daemon() error {
 	err = os.MkdirAll(config.BinariesFolder.Value(), 0755)
 	if err != nil {
 		logging.Error.Printf("Error creating binaries folder: %s", err.Error())
+	}
+
+	err = os.MkdirAll(config.CacheFolder.Value(), 0755)
+	if err != nil {
+		logging.Error.Printf("Error creating cache folder: %s", err.Error())
 	}
 
 	//update path to include our binary folder

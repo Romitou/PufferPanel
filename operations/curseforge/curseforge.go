@@ -2,10 +2,13 @@ package curseforge
 
 import (
 	"errors"
+	"fmt"
 	"github.com/pufferpanel/pufferpanel/v3"
 	"github.com/pufferpanel/pufferpanel/v3/config"
 	"github.com/pufferpanel/pufferpanel/v3/files"
 	"github.com/pufferpanel/pufferpanel/v3/logging"
+	"github.com/pufferpanel/pufferpanel/v3/operations/forgedl"
+	"github.com/pufferpanel/pufferpanel/v3/operations/neoforgedl"
 	"github.com/pufferpanel/pufferpanel/v3/utils"
 	"io"
 	"net/http"
@@ -39,7 +42,7 @@ type CurseForge struct {
 //-   download "old" installer to the cache
 //-   run installer in cache
 //-   copy directory to server
-//- neoforge
+//- neoforgedl
 //-   same as forge, but screw downloading
 //- quilt
 //-   will not deal with
@@ -142,18 +145,22 @@ func (c CurseForge) Run(args pufferpanel.RunOperatorArgs) pufferpanel.OperationR
 	var vars map[string]string
 	var manifest Manifest
 	if jar, err = findInstallerJar(env); err == nil {
-		if strings.HasPrefix(jar, "neoforge") {
-			modLoader = "neoforge"
+		logging.Debug.Printf("Found jar: %s\n", jar)
+		if strings.HasPrefix(jar, "neoforgedl") {
+			modLoader = "neoforgedl"
 		} else {
 			modLoader = "forge"
 		}
 		data["jar"] = jar
 	} else if vars, err = readVariableFile(serverFile); err == nil {
+		logging.Debug.Printf("Reading variables.txt\n")
 		modLoader = strings.ToLower(vars["MODLOADER"])
 		data["mcVersion"] = vars["MINECRAFT_VERSION"]
 		data["version"] = vars["MODLOADER_VERSION"]
 		data["installerVersion"] = vars["FABRIC_INSTALLER_VERSION"]
+		logging.Debug.Printf("Resolved: %v\n", data)
 	} else if manifest, err = getManifest(clientFile); err == nil {
+		logging.Debug.Printf("Using manifest: %v\n", manifest.Minecraft)
 		mcVersion := manifest.Minecraft.Version
 		var loaderVersion string
 		for _, v := range manifest.Minecraft.ModLoaders {
@@ -166,6 +173,7 @@ func (c CurseForge) Run(args pufferpanel.RunOperatorArgs) pufferpanel.OperationR
 		modLoader = parts[0]
 		data["mcVersion"] = mcVersion
 		data["version"] = parts[1]
+		logging.Debug.Printf("Resolved: %v\n", data)
 	} else {
 		//give up
 		env.DisplayToConsole(true, "Unknown server type. Could not prepare server for actual execution")
@@ -174,31 +182,6 @@ func (c CurseForge) Run(args pufferpanel.RunOperatorArgs) pufferpanel.OperationR
 
 	//we figured out the loader, now to run their "installer"
 	switch modLoader {
-	case "forge":
-		{
-			//for forge, we need a jar
-			//so, if we don't have one already, we'll have to get it
-			jarFile := data["jar"]
-			if jarFile == "" {
-				forgeUrl := replaceTokens(ForgeInstallerUrl, data)
-				forgeInstaller := replaceTokens(ForgeInstallerName, data)
-
-				jarFile, err = pufferpanel.DownloadViaMaven(forgeUrl, env)
-				if err != nil {
-					return pufferpanel.OperationResult{Error: err}
-				}
-				//copy to server
-				err = files.CopyFile(jarFile, filepath.Join(env.GetRootDirectory(), forgeInstaller))
-				if err != nil {
-					return pufferpanel.OperationResult{Error: err}
-				}
-				jarFile = forgeInstaller
-			}
-			err = installViaJar(env, jarFile, c.JavaBinary)
-			if err != nil {
-				return pufferpanel.OperationResult{Error: err}
-			}
-		}
 	case "fabric":
 		{
 			err = installFabric(env, data, c.JavaBinary)
@@ -206,24 +189,51 @@ func (c CurseForge) Run(args pufferpanel.RunOperatorArgs) pufferpanel.OperationR
 				return pufferpanel.OperationResult{Error: err}
 			}
 		}
+	case "forge":
+		fallthrough
 	case "neoforge":
 		{
-			//for neoforge, we need a jar
 			jarFile := data["jar"]
 			if jarFile == "" {
-				env.DisplayToConsole(true, "Cannot locate Neoforge installer")
-				return pufferpanel.OperationResult{Error: nil}
+				var downloadUrl string
+				var installerJar = "installer.jar"
+				version := data["version"]
+
+				if modLoader == "neoforge" {
+					downloadUrl = replaceTokens(neoforgedl.InstallerUrl, map[string]string{"version": version})
+				} else {
+					//because forge has the version in the url, handle it
+					mcVersion := data["mcVersion"]
+					if !strings.HasPrefix(version, mcVersion) {
+						version = mcVersion + "-" + version
+					}
+					downloadUrl = replaceTokens(forgedl.InstallerUrl, map[string]string{"version": version})
+				}
+
+				dl, err := pufferpanel.DownloadViaMaven(downloadUrl, env)
+				defer utils.Close(dl)
+				if err != nil {
+					return pufferpanel.OperationResult{Error: err}
+				}
+				//copy to server
+				err = files.WriteFile(dl, filepath.Join(env.GetRootDirectory(), installerJar))
+				if err != nil {
+					return pufferpanel.OperationResult{Error: err}
+				}
+				jarFile = installerJar
 			}
-			//err = installViaJar(env, jarFile, c.JavaBinary)
+
+			err = installViaJar(args.Server, env, jarFile, c.JavaBinary)
 			if err != nil {
 				return pufferpanel.OperationResult{Error: err}
 			}
 
-			//now also grab the server wrapper, because screw the madness
-			env.DisplayToConsole(true, "Grabbing ServerStarter")
+			//grab the ServerStarter if there isn't a server.jar, just to help out
+			//would prefer Forge's variant, but this will do
 			runJarFile := filepath.Join(env.GetRootDirectory(), "server.jar")
 			if _, err = os.Stat(runJarFile); os.IsNotExist(err) {
-				var cachePath = filepath.Join(config.CacheFolder.Value(), "github.com", "neoforge", "serverstarter", NeoForgeServerStarterVersion, "server.jar")
+				env.DisplayToConsole(true, "Grabbing ServerStarter")
+				var cachePath = filepath.Join(config.CacheFolder.Value(), "github.com", "neoforgedl", "serverstarter", NeoForgeServerStarterVersion, "server.jar")
 				if _, err = os.Stat(cachePath); os.IsNotExist(err) {
 					env.DisplayToConsole(true, "Downloading "+NeoForgeServerStarter)
 					err = pufferpanel.DownloadFileToCache(NeoForgeServerStarter, cachePath)
@@ -249,7 +259,7 @@ func (c CurseForge) Run(args pufferpanel.RunOperatorArgs) pufferpanel.OperationR
 	return pufferpanel.OperationResult{Error: nil}
 }
 
-func findInstallerJar(env pufferpanel.Environment) (string, error) {
+func findInstallerJar(env *pufferpanel.Environment) (string, error) {
 	entries, err := os.ReadDir(env.GetRootDirectory())
 	if err != nil {
 		return "", err
@@ -266,16 +276,16 @@ func findInstallerJar(env pufferpanel.Environment) (string, error) {
 	return "", os.ErrNotExist
 }
 
-func installViaJar(env pufferpanel.Environment, jarFile string, javaBinary string) error {
+func installViaJar(server pufferpanel.DaemonServer, env *pufferpanel.Environment, jarFile string, javaBinary string) error {
 	//installer found, we will run this one
 	result := make(chan int, 1)
 	err := env.Execute(pufferpanel.ExecutionData{
-		Command:   javaBinary,
-		Arguments: []string{"-jar", jarFile, "--installServer"},
+		Command: fmt.Sprintf("%s -jar %s --installServer", javaBinary, jarFile),
 		Callback: func(exitCode int) {
 			result <- exitCode
 			env.DisplayToConsole(true, "Installer exit code: %d", exitCode)
 		},
+		Variables: server.DataToMap(),
 	})
 	if err != nil {
 		return err
@@ -286,6 +296,9 @@ func installViaJar(env pufferpanel.Environment, jarFile string, javaBinary strin
 
 	//delete installer now
 	err = os.Remove(filepath.Join(env.GetRootDirectory(), jarFile))
+	if err != nil {
+		env.DisplayToConsole(true, "Failed to delete installer")
+	}
 	err = os.Remove(filepath.Join(env.GetRootDirectory(), jarFile+".log"))
 	if err != nil {
 		env.DisplayToConsole(true, "Failed to delete installer")
@@ -315,7 +328,7 @@ func installViaJar(env pufferpanel.Environment, jarFile string, javaBinary strin
 	return nil
 }
 
-func installFabric(env pufferpanel.Environment, data map[string]string, javaBinary string) error {
+func installFabric(env *pufferpanel.Environment, data map[string]string, javaBinary string) error {
 	//this is a mess
 	//there's 2 options that exist for fabric
 	//there is an "improved" launcher, which is just a jar that we need
@@ -344,8 +357,7 @@ func installFabric(env pufferpanel.Environment, data map[string]string, javaBina
 		//forge installer found, we will run this one
 		result := make(chan int, 1)
 		err = env.Execute(pufferpanel.ExecutionData{
-			Command:   javaBinary,
-			Arguments: []string{"-jar", "fabric-installer", "server", "-mcversion", data["mcVersion"], "-loader", data["version"], "-downloadMinecraft"},
+			Command: fmt.Sprintf("%s -jar fabric-installer server -mcversion %s -loader %s -downloadMinecraft", javaBinary, data["mcVersion"], data["version"]),
 			Callback: func(exitCode int) {
 				result <- exitCode
 				env.DisplayToConsole(true, "Installer exit code: %d", exitCode)

@@ -17,7 +17,7 @@ on:
 
 env:
   SWAG_VERSION: "1.16.4"
-  NODE_VERSION: "20"
+  NODE_VERSION: "22"
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
@@ -28,7 +28,7 @@ concurrency:
 jobs:
   build-shared:
     name: Build Shared Objects
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     if: "startsWith(github.ref, 'refs/tags/v') || !contains(github.event.head_commit.message, '[skip]')"
 
     timeout-minutes: 10
@@ -73,7 +73,7 @@ jobs:
 
       - name: Generate Swagger Docs
         run: |
-          ~/go/bin/swag init --md . -o web/swagger -g web/loader.go
+          ~/go/bin/swag init --pd --md . -o web/swagger -g web/loader.go
 
       - name: yarn install, build
         run: |
@@ -284,19 +284,21 @@ jobs:
       - name: Build Linux
         run: |
           go build -o build-artifacts/pufferpanel -ldflags "-X 'github.com/pufferpanel/pufferpanel/v3.Hash=${{ github.sha }}' -X 'github.com/pufferpanel/pufferpanel/v3.Version=${{ env.VERSION }}'" -v github.com/pufferpanel/pufferpanel/v3/cmd
+          go test -v ./...
         env:
           GOOS: linux
           GOARCH: amd64
 
       - name: Set up build folder
         run: |
-          mkdir -p DEBBUILD/usr/sbin DEBBUILD/var/www/pufferpanel
+          mkdir -p DEBBUILD/usr/sbin DEBBUILD/var/www/pufferpanel RPMBUILD/var/www/pufferpanel
           mkdir -p DEBBUILD/var/log/pufferpanel RPMBUILD/var/log/pufferpanel
-          mkdir -p DEBBUILD/etc/pufferpanel DEBBUILD/lib/systemd/system/
+          mkdir -p DEBBUILD/etc/pufferpanel DEBBUILD/lib/systemd/system DEBBUILD/etc/apparmor.d/
           mkdir -p DEBBUILD/var/lib/pufferpanel/binaries RPMBUILD/var/lib/pufferpanel
           cp config.linux.json DEBBUILD/etc/pufferpanel/config.json
           cp build-artifacts/pufferpanel DEBBUILD/usr/sbin/pufferpanel
           cp systemd/servicefiles/pufferpanel.service DEBBUILD/lib/systemd/system/pufferpanel.service
+          cp systemd/servicefiles/apparmor.conf DEBBUILD/etc/apparmor.d/pufferpanel
 
       - name: Build Package DEB AMD64
         id: debamd64
@@ -317,8 +319,7 @@ jobs:
           before-remove: systemd/scripts/preremove.sh
           after-remove: systemd/scripts/postremove.sh
           after-purge: systemd/scripts/purge.sh
-          user: pufferpanel
-          group: pufferpanel
+          extra-dpkg-args: '-Zxz'
           suggested-packages: |
             lib32gcc1
 
@@ -348,6 +349,7 @@ jobs:
             systemd/servicefiles/pufferpanel.service:/lib/systemd/system/pufferpanel.service
             RPMBUILD/var/lib/pufferpanel:/var/lib/pufferpanel
             RPMBUILD/var/log/pufferpanel:/var/log/pufferpanel
+            RPMBUILD/var/www/pufferpanel:/var/www/pufferpanel
           config: |
             /etc/pufferpanel/config.json:noreplace
           suggested-packages: |

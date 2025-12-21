@@ -1,4 +1,6 @@
 @use "sass:map";
+@use "sass:meta";
+@use "sass:string";
 
 // slightly modified mdi scss
 @font-face {
@@ -58,8 +60,8 @@
 }
 
 @function icon-char($character-code) {
-  @if function-exists("selector-append") {
-    @return unquote("\"\\#{$character-code}\"");
+  @if meta.function-exists("selector-append") {
+    @return string.unquote("\"\\#{$character-code}\"");
   }
 
   @if "\\#{'x'}" == "\\x" {
@@ -6586,6 +6588,9 @@ $mdi-icons: (
 .icon-play {
   @include icon-name(play-circle);
 }
+.icon-restart {
+  @include icon-name(refresh-circle);
+}
 .icon-stop {
   @include icon-name(stop-circle);
 }
@@ -6653,7 +6658,7 @@ $mdi-icons: (
   @include icon-name(menu);
 }
 .icon-menu {
-  @include icon-name(dots-vertical);
+  @include icon-name(dots-horizontal);
 }
 .icon-plus {
   @include icon-name(plus);
@@ -6745,6 +6750,12 @@ $mdi-icons: (
 .icon-extract {
   @include icon-name(archive-arrow-up);
 }
+.icon-select {
+  @include icon-name(select);
+}
+.icon-deselect {
+  @include icon-name(select-remove);
+}
 .icon-2fa {
   @include icon-name(two-factor-authentication);
 }
@@ -6765,6 +6776,12 @@ $mdi-icons: (
 }
 .icon-restore {
   @include icon-name(restore);
+}
+.icon-server-root {
+  @include icon-name(home);
+}
+.icon-path-separator {
+  @include icon-name(chevron-right);
 }
 html[dir="ltr"] {
   .icon-back {

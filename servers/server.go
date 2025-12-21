@@ -28,14 +28,16 @@ type Server struct {
 	pufferpanel.DaemonServer
 	pufferpanel.Server
 
-	CrashCounter       int                     `json:"-"`
-	RunningEnvironment pufferpanel.Environment `json:"-"`
-	Scheduler          *Scheduler              `json:"-"`
+	CrashCounter       int                      `json:"-"`
+	RunningEnvironment *pufferpanel.Environment `json:"-"`
+	Scheduler          *Scheduler               `json:"-"`
 	stopChan           chan bool
 	waitForConsole     sync.Locker
 	fileServer         files.FileServer
 	backingUp          bool
 	restoring          bool
+	keepAlive          *time.Ticker
+	keepAliveChan      chan bool
 }
 
 var queue *list.List
@@ -170,6 +172,7 @@ func CreateProgram() *Server {
 	}
 	p.stopChan = make(chan bool, 1)
 	p.waitForConsole = &sync.Mutex{}
+	p.keepAliveChan = make(chan bool)
 	return p
 }
 
@@ -250,11 +253,8 @@ func (p *Server) Start() error {
 	data := p.DataToMap()
 
 	commandLine := utils.ReplaceTokens(command.Command, data)
-
-	cmd, args := utils.SplitArguments(commandLine)
 	err = p.RunningEnvironment.ExecuteAsync(pufferpanel.ExecutionData{
-		Command:     cmd,
-		Arguments:   args,
+		Command:     commandLine,
 		Environment: utils.ReplaceTokensInMap(p.Execution.EnvironmentVariables, data),
 		Variables:   p.DataToMap(),
 		Callback:    p.afterExit,
@@ -267,7 +267,32 @@ func (p *Server) Start() error {
 		return err
 	}
 
-	//stats!
+	//keepalive!
+	if p.KeepAlive.Frequency != "" && p.KeepAlive.Command != "" {
+		dur, err := time.ParseDuration(p.KeepAlive.Frequency)
+		if err != nil {
+			p.RunningEnvironment.DisplayToConsole(true, " Failed to enable keep-alive: %s", err)
+			return nil
+		}
+		if p.keepAlive == nil {
+			p.keepAlive = time.NewTicker(dur)
+		} else {
+			p.keepAlive.Reset(dur)
+		}
+
+		if p.keepAlive != nil {
+			go func() {
+				for {
+					select {
+					case <-p.keepAliveChan:
+						return
+					case <-p.keepAlive.C:
+						_ = p.RunningEnvironment.ExecuteInMainProcess(p.KeepAlive.Command)
+					}
+				}
+			}()
+		}
+	}
 
 	return err
 }
@@ -334,10 +359,12 @@ func (p *Server) Destroy() (err error) {
 
 	p.Log(logging.Info, "Destroying server %s", p.Id())
 
-	if p.Scheduler != nil {
+	p.Log(logging.Debug, "Stopping scheduler")
+	if p.Scheduler != nil && p.Scheduler.IsRunning() {
 		p.Scheduler.Stop()
 	}
 
+	p.Log(logging.Debug, "Starting uninstall processes")
 	process, err := GenerateProcess(p.Uninstallation, p.RunningEnvironment, p.DataToMap(), p.Execution.EnvironmentVariables)
 	if err != nil {
 		p.Log(logging.Error, "Error uninstalling server: %s", err)
@@ -352,6 +379,7 @@ func (p *Server) Destroy() (err error) {
 		return
 	}
 
+	p.Log(logging.Debug, "Deleting environment")
 	err = p.RunningEnvironment.Delete()
 	if err != nil {
 		p.Log(logging.Error, "Error uninstalling server: %s", err)
@@ -428,7 +456,7 @@ func (p *Server) Execute(command string) (err error) {
 	return
 }
 
-func (p *Server) SetEnvironment(environment pufferpanel.Environment) (err error) {
+func (p *Server) SetEnvironment(environment *pufferpanel.Environment) (err error) {
 	p.RunningEnvironment = environment
 	return
 }
@@ -437,7 +465,7 @@ func (p *Server) Id() string {
 	return p.Identifier
 }
 
-func (p *Server) GetEnvironment() pufferpanel.Environment {
+func (p *Server) GetEnvironment() *pufferpanel.Environment {
 	return p.RunningEnvironment
 }
 
@@ -514,6 +542,11 @@ func (p *Server) GetNetwork() string {
 }
 
 func (p *Server) afterExit(exitCode int) {
+	if p.keepAlive != nil {
+		p.keepAlive.Stop()
+		p.keepAliveChan <- true
+	}
+
 	graceful := exitCode == p.Execution.ExpectedExitCode
 	if graceful {
 		p.CrashCounter = 0
@@ -794,7 +827,7 @@ func (p *Server) Log(l *log.Logger, format string, obj ...interface{}) {
 
 func (p *Server) RunCondition(condition string, extraData map[string]interface{}) (bool, error) {
 	data := map[string]interface{}{
-		conditions.VariableEnv:      p.RunningEnvironment.GetBase().Type,
+		conditions.VariableEnv:      p.RunningEnvironment.Type,
 		conditions.VariableServerId: p.Id(),
 	}
 

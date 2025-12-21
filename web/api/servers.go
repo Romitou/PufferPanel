@@ -76,6 +76,9 @@ func registerServers(g *gin.RouterGroup) {
 	g.POST("/:serverId/start", middleware.RequiresPermission(scopes.ScopeServerStart), middleware.ResolveServerPanel, proxyServerRequest)
 	g.OPTIONS("/:serverId/start", response.CreateOptions("POST"))
 
+	g.POST("/:serverId/restart", middleware.RequiresPermission(scopes.ScopeServerStart), middleware.RequiresPermission(scopes.ScopeServerStop), middleware.ResolveServerPanel, proxyServerRequest)
+	g.OPTIONS("/:serverId/restart", response.CreateOptions("POST"))
+
 	g.POST("/:serverId/stop", middleware.RequiresPermission(scopes.ScopeServerStop), middleware.ResolveServerPanel, proxyServerRequest)
 	g.OPTIONS("/:serverId/stop", response.CreateOptions("POST"))
 
@@ -671,7 +674,7 @@ func getServerUsers(c *gin.Context) {
 		p = append(p, v.Scopes...)
 
 		found := false
-		for z, _ := range users {
+		for z := range users {
 			if v.User.ID == z.ID {
 				//this is the user
 				users[z] = p
@@ -789,9 +792,8 @@ func editServerUser(c *gin.Context) {
 	if scopes.ContainsScope(currentPerms.Scopes, scopes.ScopeServerAdmin) || scopes.ContainsScope(currentGlobalPerms.Scopes, scopes.ScopeServerAdmin) || scopes.ContainsScope(currentGlobalPerms.Scopes, scopes.ScopeAdmin) {
 		existing.Scopes = perms.Scopes
 	} else {
-		allowedScopes := utils.Union(existing.Scopes, currentPerms.Scopes)
 		//update perms to match this "setup", but not stomp over what the user can't change
-		replacement := scopes.UpdateScopesWhereGranted(existing.Scopes, allowedScopes, currentPerms.Scopes)
+		replacement := scopes.UpdateScopesWhereGranted(existing.Scopes, perms.Scopes, currentPerms.Scopes)
 		existing.Scopes = replacement
 	}
 

@@ -113,7 +113,9 @@ func (s *Scheduler) Init() error {
 }
 
 func (s *Scheduler) Stop() {
-	_ = s.scheduler.Shutdown()
+	if s.scheduler.Shutdown() == nil {
+		s.scheduler = nil
+	}
 }
 
 func (s *Scheduler) Start() {
@@ -121,10 +123,7 @@ func (s *Scheduler) Start() {
 }
 
 func (s *Scheduler) IsRunning() bool {
-	if s.scheduler == nil {
-		return false
-	}
-	return true
+	return s.scheduler != nil
 }
 
 func (s *Scheduler) AddTask(id string, task pufferpanel.Task) error {
@@ -153,7 +152,11 @@ func (s *Scheduler) addTask(id string, task pufferpanel.Task) error {
 }
 
 func (s *Scheduler) RemoveTask(id string) error {
-	s.scheduler.RemoveByTags(id)
+	for _, v := range s.scheduler.Jobs() {
+		if v.Name() == id {
+			_ = s.scheduler.RemoveJob(v.ID())
+		}
+	}
 	delete(s.Tasks, id)
 	return s.Save()
 }
@@ -199,4 +202,8 @@ func _executeTask(serverId string, id string) {
 		}
 		p.RunningEnvironment.DisplayToConsole(true, "Task %s finished\n", task.Name)
 	}
+}
+
+func (s *Scheduler) GetExecutor() gocron.Scheduler {
+	return s.scheduler
 }

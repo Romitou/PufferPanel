@@ -4,6 +4,7 @@
   "Console": "Konsol",
   "SFTPInfo": "SFTP Bilgisi",
   "Start": "Başlat",
+  "Restart": "Restart",
   "Stop": "Durdur",
   "Kill": "Sonlandır",
   "Install": "Kur",
@@ -31,6 +32,7 @@
   "NoSettings": "This server does not have any settings you can change",
   "Delete": "Sunucuyu Sil",
   "ConfirmDelete": "Sunucuyu cidden silmek istiyor musun? (geri getiremezsin)",
+  "Deleting": "Removing Server, please wait...",
   "Deleted": "Silinmiş Sunucu",
   "SftpConnection": "SFTP Bağlan",
   "EditDefinition": "Sunucu tanımını düzenle",
@@ -50,5 +52,11 @@
     "autoStart": "Start the server when the node starts",
     "autoRestartOnGraceful": "Restart the server when it stops normally",
     "autoRestartOnCrash": "Restart the server when it crashes"
-  }
+  },
+  "IncompatibleTemplates": "Incompatible templates",
+  "IncompatibleTemplatesDescription": "These templates are incompatible with at least one of your previous selections",
+  "IncompatibleArch": "Incompatible with architecture '{arch}'",
+  "IncompatibleOs": "Incompatible with OS '{os}'",
+  "IncompatibleEnv": "Incompatible with environment '{env}'",
+  "AdvancedSettings": "Advanced Settings"
 }

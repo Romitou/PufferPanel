@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/pufferpanel/pufferpanel/v3"
 	"github.com/pufferpanel/pufferpanel/v3/config"
-	"github.com/pufferpanel/pufferpanel/v3/groups"
 	"github.com/pufferpanel/pufferpanel/v3/logging"
 	"github.com/spf13/cobra"
 	"os"
@@ -12,10 +11,10 @@ import (
 )
 
 func main() {
-	if !groups.IsUserIn(groups.PufferPanelGroup) {
+	/*if !groups.IsUserIn(groups.PufferPanelGroup) {
 		fmt.Println("You do not have permission to use this command")
 		return
-	}
+	}*/
 
 	defer logging.Close()
 
@@ -34,6 +33,9 @@ func main() {
 var rootCmd = &cobra.Command{
 	Use:   "pufferpanel",
 	Short: "Game Server Management Panel",
+	CompletionOptions: cobra.CompletionOptions{
+		DisableDefaultCmd: true,
+	},
 }
 
 var configFile string
@@ -50,7 +52,7 @@ func init() {
 		versionCmd,
 		userCmd,
 		runServiceCmd,
-		migrateCmd,
+		dbCmd,
 	)
 }
 

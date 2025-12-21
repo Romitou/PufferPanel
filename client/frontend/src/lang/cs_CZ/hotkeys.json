@@ -7,7 +7,8 @@
     "g n": "Přejít na uzly",
     "g s": "Přejít na servery",
     "g t": "Přejít na šablony",
-    "g u": "Přejít na Uživatele"
+    "g u": "Přejít na Uživatele",
+    "/": "Global Search"
   },
   "Self": {
     "Title": "Účet",
@@ -32,7 +33,8 @@
     "t 6": "Přejít na SFTP záložku",
     "t 7": "Přejít na záložku API",
     "t a": "Přejít na záložku Administrace",
-    "c c": "Vyčistit konzoli",
+    "c c": "Focus Command Input",
+    "c x": "Clear Console",
     "r r": "Spustit Server",
     "r s": "Zastavit server",
     "r k": "Zabít server",
@@ -40,6 +42,8 @@
     "f a": "Archivovat aktuální obsah adresáře",
     "f c d": "Vytvořit nový adresář",
     "f c f": "Vytvořit nový soubor",
+    "f s a": "Archive selected files",
+    "f s d": "Delete selected files",
     "f d": "Adresář pro nahrávání",
     "f l": "Zaměřit první soubor/složku v seznamu",
     "f r": "Obnovit seznam souborů",

@@ -18,7 +18,9 @@ import (
 	"github.com/pufferpanel/pufferpanel/v3/operations/mkdir"
 	"github.com/pufferpanel/pufferpanel/v3/operations/mojangdl"
 	"github.com/pufferpanel/pufferpanel/v3/operations/move"
-	neoforgedl "github.com/pufferpanel/pufferpanel/v3/operations/neoforge"
+	"github.com/pufferpanel/pufferpanel/v3/operations/neoforgedl"
+	"github.com/pufferpanel/pufferpanel/v3/operations/nodejsdl"
+	"github.com/pufferpanel/pufferpanel/v3/operations/paperdl"
 	"github.com/pufferpanel/pufferpanel/v3/operations/resolveforgeversion"
 	"github.com/pufferpanel/pufferpanel/v3/operations/resolveneoforgeversion"
 	"github.com/pufferpanel/pufferpanel/v3/operations/sleep"
@@ -47,6 +49,8 @@ var factories = []pufferpanel.OperationFactory{
 	mojangdl.Factory,
 	move.Factory,
 	neoforgedl.Factory,
+	nodejsdl.Factory,
+	paperdl.Factory,
 	resolveforgeversion.Factory,
 	resolveneoforgeversion.Factory,
 	sleep.Factory,
@@ -62,7 +66,7 @@ func init() {
 	}
 }
 
-func GenerateProcess(directions []pufferpanel.ConditionalMetadataType, environment pufferpanel.Environment, dataMapping map[string]interface{}, env map[string]string) (OperationProcess, error) {
+func GenerateProcess(directions []pufferpanel.ConditionalMetadataType, environment *pufferpanel.Environment, dataMapping map[string]interface{}, env map[string]string) (OperationProcess, error) {
 	dataMap := make(map[string]interface{})
 	for k, v := range dataMapping {
 		dataMap[k] = v
@@ -158,12 +162,14 @@ func (p *OperationProcess) Run(server *Server) error {
 
 			if result.Error != nil {
 				logging.Error.Printf("Error running command: %s", result.Error.Error())
-				if firstError == nil {
+				//TODO: Implement success checking more accurately here
+				/*if firstError == nil {
 					firstError = result.Error
-					//TODO: Implement success checking more accurately here
 					return result.Error
 				}
-				extraData[conditions.VariableSuccess] = false
+				//extraData[conditions.VariableSuccess] = false
+				*/
+				return result.Error
 			} else {
 				extraData[conditions.VariableSuccess] = true
 			}

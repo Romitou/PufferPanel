@@ -1,3 +1,5 @@
+@use '../mixins' as *;
+
 .list-type-grid {
   .main .list {
     @include breakpoint(md) {
@@ -13,7 +15,6 @@
     .#{$t}list {
       @include card;
       @include cols(12);
-      max-width: calc(100% - 2em);
       .list {
         .list-item a:focus-visible {
           outline: none;
@@ -60,7 +61,7 @@
 
       .#{$t} {
         .title, .subline {
-          overflow: hidden;
+          overflow: clip visible;
           white-space: nowrap;
           text-overflow: ellipsis;
           max-width: 100%;
@@ -152,7 +153,7 @@
 
       .#{$t} {
         .title, .subline {
-          overflow: hidden;
+          overflow: clip visible;
           white-space: nowrap;
           text-overflow: ellipsis;
           max-width: 100%;

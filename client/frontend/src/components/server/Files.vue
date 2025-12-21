@@ -1,16 +1,19 @@
 <script setup>
-import { ref, onMounted, onUnmounted, inject } from 'vue'
+import { computed, ref, onMounted, onUnmounted, inject, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Btn from '@/components/ui/Btn.vue'
+import ContextMenu from '@/components/ui/ContextMenu.vue'
 import Icon from '@/components/ui/Icon.vue'
 import Loader from '@/components/ui/Loader.vue'
 import Overlay from '@/components/ui/Overlay.vue'
 import Editor, { skipDownload } from './files/Editor.vue'
 import Upload from './files/Upload.vue'
 import TextField from '@/components/ui/TextField.vue'
+import Toggle from '@/components/ui/Toggle.vue'
 
 const { t } = useI18n()
 const events = inject('events')
+const toast = inject('toast')
 
 const props = defineProps({
   server: { type: Object, required: true }
@@ -29,7 +32,11 @@ const editorOpen = ref(false)
 const loading = ref(false)
 const createFileOpen = ref(false)
 const createFolderOpen = ref(false)
+const archiveSelectedOpen = ref(false)
 const newItemName = ref('')
+const selection = computed(() => {
+  return (files.value || []).filter(f => f.isSelected)
+})
 
 let task
 let unbindEvent
@@ -37,11 +44,11 @@ onMounted(() => {
   refresh()
 
   unbindEvent = props.server.on('status', () => {
-    refresh()
+    if (selection.value.length === 0) refresh()
   })
 
   task = props.server.startTask(() => {
-    refresh()
+    if (selection.value.length === 0) refresh()
   }, 5 * 60 * 1000)
 })
 
@@ -49,6 +56,11 @@ onUnmounted(async () => {
   if (unbindEvent) unbindEvent()
   if (task) props.server.stopTask(task)
 })
+
+watch(currentPath, async (newPath) => {
+  const res = await props.server.getFile(newPath.map(e => e.name).join('/'))
+  files.value = res.sort(sortFiles)
+}, {deep: true})
 
 async function refresh(manual = false) {
   if (manual) files.value = null // cause visual feedback on manual refresh
@@ -83,23 +95,21 @@ async function openFile(f, overrideWarn = false) {
     editorOpen.value = true
     loading.value = false
   } else {
-    let path = ''
     if (f.name === '..') {
       currentPath.value.pop()
-      path = getCurrentPath()
     } else {
-      path = getCurrentPath() + `/${f.name}`
+      currentPath.value.push(f)
     }
-    const res = await props.server.getFile(path)
-    files.value = res.sort(sortFiles)
-    if (f.name !== '..') currentPath.value.push(f)
   }
 }
 
-async function saveFile() {
+async function saveFile({close}) {
   await props.server.uploadFile(`${getCurrentPath()}/${file.value.name}`, file.value.content)
-  editorOpen.value = false
-  file.value = null
+  toast.success(t('files.Saved'))
+  if (close) {
+    editorOpen.value = false
+    file.value = null
+  }
   refresh()
 }
 
@@ -246,8 +256,13 @@ async function archive(file) {
   }
 }
 
-function downloadLink(file) {
-  return props.server.getFileUrl(getCurrentPath() + '/' + file.name)
+function download(file) {
+  const a = document.createElement('a')
+  a.href = props.server.getFileUrl(getCurrentPath() + '/' + file.name)
+  a.download = a.href.split('/').pop()
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
 }
 
 function fileListHotkey() {
@@ -257,44 +272,165 @@ function fileListHotkey() {
 function trackFileEl(index) {
   return (el) => fileEls.value[index] = el
 }
+
+function contextActionsForFile(file) {
+  const actions = []
+  if (file.name !== '..') {
+    actions.push({
+      icon: file.isSelected ? 'deselect' :'select',
+      label: t(file.isSelected ? 'files.Deselect' : 'files.Select'),
+      hotkey: 's',
+      action: () => file.isSelected = !file.isSelected
+    })
+  }
+  if (canEdit && file.name !== '..' && !file.isFile) {
+    actions.push({
+      icon: 'archive',
+      label: t('files.Archive'),
+      hotkey: 'a',
+      action: () => archive(file)
+    })
+  }
+  if (canEdit && file.isFile && isArchive(file)) {
+    actions.push({
+      icon: 'extract',
+      label: t('files.Extract'),
+      hotkey: 'e',
+      action: () => extract(file)
+    })
+  }
+  if (file.isFile) {
+    actions.push({
+      icon: 'download',
+      label: t('files.Download'),
+      hotkey: 'd',
+      action: () => download(file)
+    })
+  }
+  if (canEdit && file.name !== '..') {
+    actions.push({
+      icon: 'remove',
+      label: t('files.Delete'),
+      hotkey: 'Delete',
+      class: 'action-delete',
+      action: () => deleteFile(file)
+    })
+  }
+  return actions
+}
+
+async function archiveSelected() {
+  const archiveName = newItemName.value
+  newItemName.value = ''
+  archiveSelectedOpen.value = false
+  loading.value = true
+  try {
+    await props.server.archiveFile(
+      await makeArchiveName(archiveName),
+      selection.value.map(f => {
+        return `${getCurrentPath()}/${f.name}`
+      })
+    )
+  } finally {
+    setTimeout(async () => {
+      await refresh()
+      loading.value = false
+    }, 500)
+  }
+}
+
+function deleteSelected() {
+  events.emit(
+    'confirm',
+    t('files.ConfirmDeleteSelected', undefined, selection.value.length),
+    {
+      text: t('files.Delete'),
+      icon: 'remove',
+      color: 'error',
+      action: async () => {
+        loading.value = true
+        try {
+          await Promise.all(
+            selection.value.map(f => props.server.deleteFile(getCurrentPath() + '/' + f.name))
+          )
+        } finally {
+          await refresh()
+          loading.value = false
+        }
+      }
+    },
+    {
+      color: 'primary'
+    }
+  )
+}
+
+function deselectAll() {
+  files.value = files.value.map(f => {
+    f.isSelected = false
+    return f
+  })
+}
+
+function selectAll() {
+  if (files.value === null) return
+  files.value = files.value.map(f => {
+    f.isSelected = f.name !== '..'
+    return f
+  })
+}
 </script>
 
 <template>
-  <div class="file-manager">
+  <div v-hotkey="'Control+a'" class="file-manager" @hotkey="selectAll()">
     <div class="header">
       <h2 v-text="t('servers.Files')" />
-      <h3 v-text="'/' + getCurrentPath()" />
+      <h3>
+        <a @click="currentPath = []"><icon name="server-root" /></a>
+        <span v-for="segment, index in currentPath" :key="index">
+          <icon name="path-separator" />
+          <a @click="currentPath.splice(index + 1)" v-text="segment.name" />
+        </span>
+      </h3>
       <span class="spacer" />
-      <btn v-if="canEdit" v-hotkey="'f a'" variant="icon" :tooltip="t('files.ArchiveCurrent')" @click="archiveCurrentDirectory()"><icon name="archive" /></btn>
-      <upload v-if="canEdit" :path="getCurrentPath()" :server="server" hotkey="f u" @uploaded="refresh()" />
-      <upload v-if="canEdit && allowDirectoryUpload" :path="getCurrentPath()" :server="server" folder hotkey="f d" @uploaded="refresh()" />
-      <btn v-if="canEdit" v-hotkey="'f c f'" variant="icon" :tooltip="t('files.CreateFile')" @click="startCreateFile()"><icon name="file-create" /></btn>
-      <btn v-if="canEdit" v-hotkey="'f c d'" variant="icon" :tooltip="t('files.CreateFolder')" @click="startCreateFolder()"><icon name="folder-create" /></btn>
-      <btn v-hotkey="'f r'" variant="icon" :tooltip="t('files.Refresh')" @click="refresh(true)"><icon name="reload" /></btn>
+      <span v-if="selection.length === 0" class="controls">
+        <btn v-if="canEdit" v-hotkey="'f a'" variant="icon" :tooltip="t('files.ArchiveCurrent')" @click="archiveCurrentDirectory()"><icon name="archive" /></btn>
+        <upload v-if="canEdit" :path="getCurrentPath()" :server="server" hotkey="f u" @uploaded="refresh()" />
+        <upload v-if="canEdit && allowDirectoryUpload" :path="getCurrentPath()" :server="server" folder hotkey="f d" @uploaded="refresh()" />
+        <btn v-if="canEdit" v-hotkey="'f c f'" variant="icon" :tooltip="t('files.CreateFile')" @click="startCreateFile()"><icon name="file-create" /></btn>
+        <btn v-if="canEdit" v-hotkey="'f c d'" variant="icon" :tooltip="t('files.CreateFolder')" @click="startCreateFolder()"><icon name="folder-create" /></btn>
+        <btn v-hotkey="'f r'" variant="icon" :tooltip="t('files.Refresh')" @click="refresh(true)"><icon name="reload" /></btn>
+      </span>
+      <span v-else class="controls">
+        <span class="selection-count" v-text="t('files.Selected', undefined, selection.length)" />
+        <btn v-if="canEdit" v-hotkey="'f s a'" variant="icon" :tooltip="t('files.ArchiveSelected')" @click="archiveSelectedOpen = true"><icon name="archive" /></btn>
+        <btn v-if="canEdit" v-hotkey="'f s d'" variant="icon" :tooltip="t('files.DeleteSelected', undefined, selection.length)" @click="deleteSelected()"><icon name="remove" /></btn>
+        <btn v-hotkey="'Escape'" variant="icon" :tooltip="t('files.DeselectAll')" @click="deselectAll()"><icon name="close" /></btn>
+      </span>
     </div>
     <div v-hotkey="'f l'" class="file-list" @hotkey="fileListHotkey">
       <loader v-if="!Array.isArray(files)" />
       <!-- eslint-disable-next-line vue/no-template-shadow -->
-      <a v-for="(file, index) in files" v-else :key="file.name" :ref="trackFileEl(index)" tabindex="0" class="file" @click="openFile(file)" @keydown.enter="openFile(file)">
+      <a v-for="(file, index) in files" v-else :key="file.name" :ref="trackFileEl(index)" tabindex="0" :class="['file', file.isSelected ? 'selected' : '']" @click="openFile(file)" @keydown.enter="openFile(file)" @keydown.space="file.isSelected = !file.isSelected">
         <icon class="file-icon" :name="getIcon(file)" />
         <div class="details">
           <div class="name">{{ file.name }}</div>
           <div v-if="file.isFile" class="size">{{ formatFileSize(file.size) }}</div>
         </div>
-        <btn v-if="canEdit && file.name !== '..' && !file.isFile" tabindex="-1" variant="icon" :tooltip="t('files.Archive')" @click.stop="archive(file)">
-          <icon name="archive" />
-        </btn>
-        <btn v-if="canEdit && file.isFile && isArchive(file)" tabindex="-1" variant="icon" :tooltip="t('files.Extract')" @click.stop="extract(file)">
-          <icon name="extract" />
-        </btn>
-        <a v-if="file.isFile" tabindex="-1" class="dl-link" :href="downloadLink(file)" target="_blank" rel="noopener">
-          <btn tabindex="-1" variant="icon" :tooltip="t('files.Download')" @click.stop="">
-            <icon name="download" />
-          </btn>
-        </a>
-        <btn v-if="canEdit && file.name !== '..'" tabindex="-1" variant="icon" :tooltip="t('files.Delete')" @click.stop="deleteFile(file)">
-          <icon name="remove" />
-        </btn>
+        <toggle v-if="file.name !== '..'" v-model="file.isSelected" class="file-select" @click.stop="" />
+        <context-menu :title="file.name" :actions="contextActionsForFile(file)">
+          <template #title>
+            <li class="context-title">
+              <span class="name" v-text="file.name" />
+              <span v-if="file.isFile" class="size" v-text="formatFileSize(file.size)" />
+            </li>
+          </template>
+          <template #activator="contextMenu">
+            <btn v-if="contextMenu.canOpen" tabindex="-1" variant="icon" @click.stop="contextMenu.onClick">
+              <icon name="menu" />
+            </btn>
+          </template>
+        </context-menu>
       </a>
     </div>
     <overlay v-model="fileSizeWarn" closable :title="t('files.OpenLargeFile')">
@@ -309,11 +445,15 @@ function trackFileEl(index) {
       <text-field v-model="newItemName" />
       <btn color="primary" :disabled="!newItemName || newItemName.trim() === ''" @click="createFolder()"><icon name="check" />{{ t('files.CreateFolder') }}</btn>
     </overlay>
+    <overlay v-model="archiveSelectedOpen" closable :title="t('files.ArchiveSelectedName')">
+      <text-field v-model="newItemName" />
+      <btn color="primary" :disabled="!newItemName || newItemName.trim() === ''" @click="archiveSelected()"><icon name="check" />{{ t('files.ArchiveSelected') }}</btn>
+    </overlay>
     <overlay v-model="loading" class="loader-overlay">
       <loader />
     </overlay>
     <overlay v-model="editorOpen" class="editor">
-      <editor v-if="file" v-model="file" :read-only="!canEdit" @save="saveFile()" @close="editorOpen = false" />
+      <editor v-if="file" v-model="file" :read-only="!canEdit" @save="saveFile($event)" @close="editorOpen = false" />
     </overlay>
   </div>
 </template>

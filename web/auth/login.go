@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/pufferpanel/pufferpanel/v3"
 	"github.com/pufferpanel/pufferpanel/v3/config"
 	"github.com/pufferpanel/pufferpanel/v3/middleware"
@@ -109,6 +110,68 @@ func OtpPost(c *gin.Context) {
 	createSession(c, user)
 }
 
+func PasskeyStart(c *gin.Context) {
+	db := middleware.GetDatabase(c)
+	us := &services.User{DB: db}
+
+	request := &PasskeyLoginRequest{}
+
+	err := c.BindJSON(request)
+	if response.HandleError(c, err, http.StatusBadRequest) {
+		return
+	}
+
+	challenge, sessionData, err := us.StartPasskeyLogin(request.Email)
+	if errors.Is(err, pufferpanel.ErrInvalidCredentials) {
+		response.HandleError(c, err, http.StatusBadRequest)
+		return
+	}
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	sessionDataJson, err := json.Marshal(sessionData)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	userSession := sessions.Default(c)
+	userSession.Set("user", request.Email)
+	userSession.Set("passkeyLogin", sessionDataJson)
+	err = userSession.Save()
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	c.JSON(http.StatusOK, challenge)
+}
+
+func PasskeyFinish(c *gin.Context) {
+	db := middleware.GetDatabase(c)
+	us := &services.User{DB: db}
+
+	sessionData := webauthn.SessionData{}
+
+	userSession := sessions.Default(c)
+	email := userSession.Get("user").(string)
+	sessionDataJson := userSession.Get("passkeyLogin").([]byte)
+	err := json.Unmarshal(sessionDataJson, &sessionData)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	user, err := us.ValidatePasskeyLogin(email, c.Request, sessionData)
+	if errors.Is(err, pufferpanel.ErrInvalidCredentials) {
+		response.HandleError(c, err, http.StatusBadRequest)
+		return
+	}
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	createSession(c, user)
+}
+
 func createSession(c *gin.Context, user *models.User) {
 	db := middleware.GetDatabase(c)
 	ps := &services.Permission{DB: db}
@@ -151,10 +214,14 @@ type LoginRequestData struct {
 }
 
 type LoginResponse struct {
-	Scopes    []*scopes.Scope `json:"scopes,omitempty"`
-	OtpNeeded bool            `json:"otpNeeded,omitempty"`
+	Scopes            []*scopes.Scope `json:"scopes,omitempty"`
+	NeedsSecondFactor bool `json:"needsSecondFactor"`
 }
 
 type OtpRequestData struct {
 	Token string `json:"token"`
+}
+
+type PasskeyLoginRequest struct {
+	Email string `json:"email"`
 }

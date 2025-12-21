@@ -106,12 +106,13 @@ func (op SpongeDl) Run(args pufferpanel.RunOperatorArgs) pufferpanel.OperationRe
 			}
 
 			file, err := pufferpanel.DownloadViaMaven(url, env)
+			defer utils.Close(file)
 			if err != nil {
 				return pufferpanel.OperationResult{Error: err}
 			}
 
 			//going to stick the spongeforge rename in, to assist with those modpacks
-			err = files.CopyFile(file, path.Join(env.GetRootDirectory(), "mods", "_aspongeforge.jar"))
+			err = files.WriteFile(file, path.Join(env.GetRootDirectory(), "mods", "_aspongeforge.jar"))
 			if err != nil {
 				return pufferpanel.OperationResult{Error: err}
 			}
@@ -119,11 +120,12 @@ func (op SpongeDl) Run(args pufferpanel.RunOperatorArgs) pufferpanel.OperationRe
 	case "spongevanilla":
 		{
 			file, err := pufferpanel.DownloadViaMaven(url, env)
+			defer utils.Close(file)
 			if err != nil {
 				return pufferpanel.OperationResult{Error: err}
 			}
 
-			err = files.CopyFile(file, path.Join(env.GetRootDirectory(), "server.jar"))
+			err = files.WriteFile(file, path.Join(env.GetRootDirectory(), "server.jar"))
 			if err != nil {
 				return pufferpanel.OperationResult{Error: err}
 			}
@@ -136,7 +138,7 @@ func (op SpongeDl) Run(args pufferpanel.RunOperatorArgs) pufferpanel.OperationRe
 	return pufferpanel.OperationResult{Error: nil}
 }
 
-func (op SpongeDl) getLatestVersion(env pufferpanel.Environment) (SpongeApiV2Versions, error) {
+func (op SpongeDl) getLatestVersion(env *pufferpanel.Environment) (SpongeApiV2Versions, error) {
 	var data SpongeApiV2Versions
 
 	var params = "?limit=1"
@@ -163,7 +165,7 @@ func (op SpongeDl) getLatestVersion(env pufferpanel.Environment) (SpongeApiV2Ver
 	return data, err
 }
 
-func (op SpongeDl) getSpecificVersion(env pufferpanel.Environment, version string) (SpongeApiV2Latest, error) {
+func (op SpongeDl) getSpecificVersion(env *pufferpanel.Environment, version string) (SpongeApiV2Latest, error) {
 	var data SpongeApiV2Latest
 
 	var url = SpongeApiBaseUrl + op.SpongeType + "/versions/" + version

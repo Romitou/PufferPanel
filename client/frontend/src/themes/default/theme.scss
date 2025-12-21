@@ -1,10 +1,10 @@
 @use "sass:list";
-@import "@csstools/normalize.css";
-@import "./fonts";
-@import "./mixins";
-@import "./icons";
-@import "./settings";
-@import "./components";
+@use "@csstools/normalize.css";
+@use "./fonts";
+@use "./mixins" as *;
+@use "./icons" as *;
+@use "./settings";
+@use "./components";
 
 
 // Global defaults
@@ -59,6 +59,7 @@
   font-family: var(--standard-font);
   text-rendering: optimizelegibility;
   color: var(--text);
+  box-sizing: border-box;
 }
 
 h1, h2, h3, h4, h5, h6, .server-header .name {
@@ -147,9 +148,115 @@ hr {
 }
 
 
+@include breakpoint-down(md) {
+  .context-menu-wrapper::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    background-color: var(--text-disabled);
+    pointer-events: none;
+    transform: translateZ(1px);
+    z-index: 50;
+  }
+  .context-menu {
+    @include card;
+    list-style-type: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    border-bottom-right-radius: 0;
+    border-bottom-left-radius: 0;
+    transform: translateZ(2px);
+    z-index: 51;
+    .context-title {
+      font-family: var(--headline-font);
+      font-size: 1.5em;
+      font-weight: bolder;
+    }
+    .context-action a {
+      @include clickable;
+      @include link;
+      padding: .5rem 0;
+      margin-top: .5rem;
+      display: flex;
+      align-items: center;
+      .icon::before {
+        font-size: 2em;
+      }
+      .label {
+        margin-left: .5rem;
+        font-size: 1.25em;
+      }
+    }
+  }
+}
+@include breakpoint(md) {
+  .context-menu {
+    @include card;
+    position: absolute;
+    top: var(--layer-y);
+    left: var(--layer-x);
+    list-style-type: none;
+    margin-top: 0;
+    padding: .75rem 0;
+    min-width: 200px;
+    transform: translateZ(1px);
+    z-index: 50;
+    &[data-suggested-direction*="top"] {
+      top: calc(var(--layer-y) - var(--height));
+    }
+    &[data-suggested-direction*="left"] {
+      left: calc(var(--layer-x) - var(--width));
+    }
+    .context-title {
+      font-weight: bolder;
+      font-size: 1.125em;
+      margin-bottom: .5rem;
+      padding-left: .75rem;
+      padding-right: .75rem;
+    }
+    .context-action a {
+      @include clickable;
+      @include link;
+      padding: .25rem;
+      padding-left: .5rem;
+      display: flex;
+      align-items: center;
+      .icon::before {
+        font-size: 1.5em;
+      }
+      .label {
+        margin-left: .5rem;
+      }
+    }
+  }
+}
+
+@include high-contrast-mode {
+  @include breakpoint-down(md) {
+    .context-menu-wrapper::before{
+      background-color: #000e;
+    }
+  }
+
+  .context-menu .context-action a:hover {
+    background-color: unset;
+    .label {
+      text-decoration: underline dashed;
+    }
+  }
+}
+
+
 .hotkey-list {
   @include row;
-  max-width: unset;
+  & {
+    max-width: unset;
+  }
 
   .contextual h3 {
     margin-top: 0;
@@ -179,7 +286,8 @@ hr {
 }
 
 .hotkey {
-  margin-top: 1em;
+  margin-top: .5em;
+  display: flex;
   .key {
     border: 1px solid var(--text-disabled);
     border-radius: 4px;
@@ -192,13 +300,10 @@ hr {
     align-items: center;
     background-color: var(--backdrop);
     box-sizing: border-box;
-    &:last-child {
-      margin-right: 0;
-    }
   }
   .keys {
     display: inline-block;
-    width: 8em;
+    min-width: 5em;
   }
   .description {
     height: 1.5em;
@@ -242,6 +347,17 @@ hr {
       visibility: visible;
       opacity: 1;
     }
+  }
+}
+
+@include high-contrast-mode {
+  [data-tooltip]::before {
+    border-top-color: #fff;
+    border-width: 8px;
+  }
+  [data-tooltip]::after {
+    border: 2px solid #fff;
+    background-color: #000;
   }
 }
 
@@ -295,13 +411,15 @@ hr {
 .templatecreate, .templateview, .serverview #admin .server-definition {
   .actions {
     @include row;
-    grid-gap: 0 1em;
-    gap: 0 1em;
-    max-width: unset;
+    & {
+      grid-gap: 0 1em;
+      gap: 0 1em;
+      max-width: unset;
+    }
     .button {
+      margin-bottom: 0;
       @include cols(12);
       @include cols(6, md);
-      margin-bottom: 0;
     }
   }
 
@@ -336,18 +454,6 @@ hr {
     h2 {
       @include cols(12);
       @include cols(6, md);
-    }
-    .switch-wrapper {
-      @include cols(11);
-      @include cols(5, md);
-      @include breakpoint(md) {
-        display: flex;
-        justify-self: end;
-        .label {
-          align-self: center;
-          padding-top: 8px;
-        }
-      }
     }
     .button.icon {
       @include cols(1);
@@ -440,13 +546,15 @@ hr {
   display: none;
 }
 
-.status.offline ~ .server-controls .stop, .status.offline ~ .server-controls .kill {
+.status.offline ~ .server-controls .restart, .status.offline ~ .server-controls .stop {
   display: none;
 }
 
 .server-controls {
   position: relative;
   white-space: nowrap;
+  margin-top: -.1em;
+  margin-left: auto;
   .button {
     box-shadow: none;
     display: inline-block;
@@ -466,7 +574,7 @@ hr {
     }
   }
 
-  .install, .menu.closed {
+  .kill, .install, .menu.closed {
     display: none;
   }
 
@@ -501,25 +609,34 @@ hr {
     color: var(--success);
   }
 
-  .stop .icon::before {
+  .restart .icon::before {
     color: var(--warning);
   }
 
-  .kill .icon::before {
+  .stop .icon::before, .kill .icon::before {
     color: var(--error);
+  }
+
+  .icon-menu {
+    @include icon-name(dots-vertical)
   }
 }
 
 @include high-contrast-mode {
   .menu.open {
     border: 3px solid var(--text);
-    .button {
-      border: 2px solid var(--text);
-      &:not(:first-child) {
-        margin-top: .5rem;
+    .button:hover {
+      background-color: unset;
+      .text {
+        text-decoration: underline dashed;
       }
     }
   }
+}
+
+html[dir="rtl"] .server-controls {
+  margin-left: unset;
+  margin-right: auto;
 }
 
 html[dir="rtl"] .menu.open {
@@ -534,20 +651,25 @@ html[dir="rtl"] .menu.open {
 
 .server-header {
   display: flex;
-  max-width: calc(100vw - 2em);
   margin-bottom: 0.25em;
   .name {
     display: flex;
-    flex-grow: 1;
     padding-left: 0.25em;
     padding-right: 0.25em;
-    text-overflow: ellipsis;
-    overflow: hidden;
+    overflow-x: scroll;
+    overflow-y: hidden;
     white-space: nowrap;
+    scrollbar-width: none;
     .button {
       margin: -4px 0.5rem 0;
       font-size: 2rem;
     }
+  }
+  .rename {
+    font-size: .9em;
+    width: 2rem;
+    min-width: 2rem;
+    height: 2rem;
   }
 }
 
@@ -784,9 +906,11 @@ html[dir="rtl"] .menu.open {
 
 .confirm-overlay .actions {
   @include row;
-  grid-gap: 0 1em;
-  gap: 0 1em;
-  max-width: unset;
+  & {
+    grid-gap: 0 1em;
+    gap: 0 1em;
+    max-width: unset;
+  }
 
   .button {
     @include cols(12);
@@ -796,6 +920,29 @@ html[dir="rtl"] .menu.open {
 
 .confirm-overlay .body {
   margin-bottom: 1em;
+}
+
+
+.recovery-codes .overlay {
+  max-width: 32rem;
+}
+
+.recovery-codes .codes {
+  @include row;
+  & {
+    margin-top: 3rem;
+    margin-bottom: 3rem;
+  }
+  .code {
+    @include cols(6);
+    & {
+      text-align: center;
+    }
+    code {
+      background-color: var(--backdrop);
+      font-weight: bold;
+    }
+  }
 }
 
 
@@ -812,6 +959,15 @@ html[dir="rtl"] .menu.open {
     margin-left: 1em;
     margin-right: 1em;
   }
+}
+
+.login .change-email {
+  display: block;
+  text-align: end;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  margin-top: -8px;
+  margin-bottom: 8px;
 }
 
 .self.loading {
@@ -835,38 +991,86 @@ html[dir="rtl"] .menu.open {
   }
 
   .mfa {
-    position: relative;
+    @include row;
+    .otp {
+      @include cols(12);
+      position: relative;
+      
+      .overlay h1 {
+        display: inline-block;
+      }
 
-    .overlay h1 {
-      display: inline-block;
+      .description {
+        display: block;
+      }
+
+      .otp-deactivation .overlay {
+        width: calc(3.5em * 8);
+      }
+
+      .otp-enroll-content, .otp-enroll-actions, .recovery-code-regeneration-actions, .otp-deactivation-actions {
+        @include row;
+        & {
+          max-width: unset;
+        }
+      }
+
+      .otp-enroll-qr {
+        @include cols(12);
+        @include cols(6, md);
+        @include cols(4, lg);
+        & {
+          display: flex;
+          justify-content: center;
+        }
+      }
+
+      .otp-enroll-info {
+        @include cols(12);
+        @include cols(6, md);
+        @include cols(8, lg);
+      }
+
+      .otp-enroll-actions .button, .recovery-code-regeneration-actions .button, .otp-deactivation-actions .button {
+        @include cols(12);
+        @include cols(6, md);
+      }
     }
-
-    .description {
-      display: block;
+    .passkeys {
+      .passkey {
+        display: flex;
+        flex-direction: row;
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        .name {
+          flex-grow: 1;
+          align-content: center;
+        }
+      }
+      @include breakpoint(md) {
+        .passkey {
+          @include card;
+          padding: .2rem .2rem .2rem 1rem;
+          margin-top: 0;
+        }
+      }
+      @include breakpoint-only(xs) {
+        .list-item {
+          padding: .25rem;
+        }
+      }
     }
-
-    .otp-enroll-content, .otp-enroll-actions, .otp-deactivation-actions {
-      @include row;
-      max-width: unset;
-    }
-
-    .otp-enroll-qr {
+    .otp:not(:last-child), .passkeys {
+      @include card;
       @include cols(12);
       @include cols(6, md);
-      @include cols(4, lg);
-      display: flex;
-      justify-content: center;
-    }
-
-    .otp-enroll-info {
-      @include cols(12);
-      @include cols(6, md);
-      @include cols(8, lg);
-    }
-
-    .otp-enroll-actions .button, .otp-deactivation-actions .button {
-      @include cols(12);
-      @include cols(6, md);
+      & {
+        height: fit-content;
+      }
+      &, h2:first-child {
+        margin-top: 0;
+      }
     }
   }
 }
@@ -881,13 +1085,17 @@ html[dir="rtl"] {
 .userview {
   @include cols(12);
   @include row;
-  margin: unset;
+  & {
+    margin: unset;
+  }
   .details, .permissions {
+    @include card;
     @include cols(12);
     @include cols(6, md);
-    @include card;
-    height: -moz-fit-content;
-    height: fit-content;
+    & {
+      height: -moz-fit-content;
+      height: fit-content;
+    }
     h3 {
       margin-top: 2em;
     }
@@ -897,13 +1105,17 @@ html[dir="rtl"] {
 .settings {
   @include cols(12);
   @include row;
-  margin: unset;
+  & {
+    margin: unset;
+  }
   .panel, .email {
+    @include card;
     @include cols(12);
     @include cols(6, md);
-    @include card;
-    height: -moz-fit-content;
-    height: fit-content;
+    & {
+      height: -moz-fit-content;
+      height: fit-content;
+    }
     .master-url {
       position: relative;
       .input-field-wrapper {
@@ -912,10 +1124,12 @@ html[dir="rtl"] {
       }
       .icon {
         @include clickable;
-        margin-left: 0.5em;
-        font-size: 2em;
-        position: absolute;
-        top: 0.5em;
+        & {
+          margin-left: 0.5em;
+          font-size: 2em;
+          position: absolute;
+          top: 0.5em;
+        }
       }
     }
     .switch-wrapper .hint {
@@ -933,10 +1147,11 @@ html[dir="rtl"] .settings .panel .master-url .icon {
 .nodeview, .nodeview .edit, .nodecreate {
   @include cols(12);
   @include row;
-  margin: unset;
-  //margin-top: 1.5em;
-  grid-gap: 0 1em;
-  gap: 0 1em;
+  & {
+    margin: unset;
+    grid-gap: 0 1em;
+    gap: 0 1em;
+  }
 
   h1, p, .name, .button, .sftp-port, .private-toggle, .public-host, .private-host, .public-port, .private-port {
     @include cols(12);
@@ -944,8 +1159,10 @@ html[dir="rtl"] .settings .panel .master-url .icon {
 
   h2 {
     @include cols(12);
-    margin-top: 1em;
-    margin-bottom: 0.25em;
+    & {
+      margin-top: 1em;
+      margin-bottom: 0.25em;
+    }
   }
 
   .public-host, .private-host {
@@ -960,15 +1177,19 @@ html[dir="rtl"] .settings .panel .master-url .icon {
 .nodeview .features {
   @include cols(12);
   @include row;
-  margin: unset;
-  grid-gap: 0 1em;
-  gap: 0 1em;
+  & {
+    margin: unset;
+    grid-gap: 0 1em;
+    gap: 0 1em;
+  }
 
   .reachable {
     @include cols(12);
     @include icon;
     @include icon-name(play-circle);
-    margin-bottom: 0.75em;
+    & {
+      margin-bottom: 0.75em;
+    }
     &::before {
       color: var(--primary);
       margin-right: 0.5em;
@@ -988,8 +1209,10 @@ html[dir="rtl"] .settings .panel .master-url .icon {
   .os, .arch, .env, .docker {
     @include cols(12);
     @include row;
-    margin: unset;
-    margin-top: 0.5em;
+    & {
+      margin: unset;
+      margin-top: 0.5em;
+    }
     span {
       @include cols(6);
       @include cols(3, md);
@@ -1009,8 +1232,8 @@ html[dir="rtl"] .settings .panel .master-url .icon {
 }
 
 .servercreate {
-  @include cols(12);
   @include card;
+  @include cols(12);
 
   .progress {
     display: flex;
@@ -1042,14 +1265,16 @@ html[dir="rtl"] .settings .panel .master-url .icon {
     .step {
       @include icon;
       @include icon-name(check);
-      font-size: 1.5em;
-      line-height: 2rem;
-      text-align: center;
-      width: 2rem;
-      height: 2rem;
-      border-radius: 1rem;
-      background-color: var(--primary);
-      z-index: 1;
+      & {
+        font-size: 1.5em;
+        line-height: 2rem;
+        text-align: center;
+        width: 2rem;
+        height: 2rem;
+        border-radius: 1rem;
+        background-color: var(--primary);
+        z-index: 1;
+      }
       &::before {
         color: var(--text-primary);
       }
@@ -1073,7 +1298,9 @@ html[dir="rtl"] .settings .panel .master-url .icon {
     .step-current {
       @include raised;
       @include step-icons;
-      background-color: var(--backdrop);
+      & {
+        background-color: var(--backdrop);
+      }
       &::before {
         color: var(--text);
       }
@@ -1081,7 +1308,9 @@ html[dir="rtl"] .settings .panel .master-url .icon {
 
     .step-current ~ .step {
       @include step-icons;
-      background-color: var(--backdrop);
+      & {
+        background-color: var(--backdrop);
+      }
       &::before {
         color: var(--text);
       }
@@ -1118,8 +1347,16 @@ html[dir="rtl"] .settings .panel .master-url .icon {
   .select-template {
     @include row;
 
-    h2, h3 {
+    h2, h3, .incompatible-desc {
       @include cols(12);
+    }
+
+    .incompatible-title {
+      margin-bottom: 0;
+    }
+
+    .incompatible-title ~ .list .list-header {
+      margin-top: 0;
     }
 
     .list {
@@ -1128,19 +1365,30 @@ html[dir="rtl"] .settings .panel .master-url .icon {
     }
 
     .template {
+      @include card;
       @include cols(12);
       @include cols(4, md);
-      @include card;
+      & {
+        margin-top: 0;
+      }
+    }
+
+    .template:not(.disabled) {
       @include clickable;
       @include link;
-      margin-top: 0;
+    }
+
+    .template.disabled {
+      background-color: var(--backdrop);
     }
 
     .overlay .actions {
       @include row;
-      grid-gap: 0 1em;
-      gap: 0 1em;
-      max-width: unset;
+      & {
+        grid-gap: 0 1em;
+        gap: 0 1em;
+        max-width: unset;
+      }
 
       .button {
         @include cols(12);
@@ -1166,15 +1414,33 @@ html[dir="rtl"] .settings .panel .master-url .icon {
 
   .environment, .settings {
     @include row;
-    grid-gap: 0 1em;
-    gap: 0 1em;
-    margin-top: 1.5rem;
+    & {
+      grid-gap: 0 1em;
+      gap: 0 1em;
+      margin-top: 1.5rem;
+    }
     div, .button {
       @include cols(12);
     }
   }
 
   .settings {
+    .setting-input-wrapper.required .input-field-wrapper {
+      label::after {
+        content: '*';
+        color: var(--error);
+        font-weight: bold;
+        position: relative;
+        padding: .3rem;
+      }
+      input:focus ~ label::after, input:not(:placeholder-shown) ~ label::after {
+        padding-left: 0;
+      }
+      .dropdown label {
+        padding-right: 0;
+      }
+    }
+
     .button {
       @include cols(6, md);
     }
@@ -1193,8 +1459,19 @@ html[dir="rtl"] .settings .panel .master-url .icon {
 }
 
 .serverview, .usercreate, .templatecreate, .templateview {
-  @include cols(12);
   @include card;
+  @include cols(12);
+}
+
+.templatelist .template-repo-header {
+  display: flex;
+  align-items: center;
+  .name {
+    flex-grow: 1;
+  }
+  .button.icon {
+    font-size: 1.25em;
+  }
 }
 
 .templatelist .template {
@@ -1210,7 +1487,6 @@ html[dir="rtl"] .settings .panel .master-url .icon {
 }
 
 .serverview {
-  max-width: calc(100% - 2em);
   h2 {
     display: none;
   }
@@ -1227,48 +1503,67 @@ html[dir="rtl"] .settings .panel .master-url .icon {
 .file-manager {
   .header {
     display: flex;
+    flex-wrap: wrap-reverse;
     margin-left: 0.5rem;
     margin-right: 0.5rem;
     h3 {
-      color: var(--text-disabled);
       font-size: 0.9em;
       margin-left: 0.5rem;
       margin-right: 0.5rem;
+      a {
+        color: var(--text);
+        &:hover {
+          text-decoration: underline;
+        }
+      }
+      span {
+        display: inline-block;
+      }
+      .icon {
+        display: inline-flex;
+        font-size: 1rem;
+      }
     }
     .spacer {
       flex-grow: 1;
     }
-    .icon {
-      font-size: 2rem;
+    .controls {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
-      justify-content: center;
-    }
-  }
-
-  .file-list {
-    .file {
-      @include clickable;
-      @include link;
-      padding: 0.5em;
-      display: flex;
-      .details {
-        flex-grow: 1;
-        padding-left: 1rem;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        .size {
-          color: var(--text-disabled);
-          font-size: 0.9em;
-        }
+      .selection-count {
+        margin-left: .5rem;
+        margin-right: .5rem;
       }
-      .icon, .button {
+      .icon {
         font-size: 2rem;
         display: flex;
         align-items: center;
         justify-content: center;
       }
+    }
+  }
+
+  .file-list {
+    .context-menu {
+      .size {
+        display: block;
+        color: var(--text-disabled);
+        font-size: .8em;
+        margin-top: .25rem;
+      }
+      .action-delete {
+        .label, .icon::before {
+          color: var(--error)
+        }
+      }
+    }
+    .file {
+      @include clickable;
+      @include link;
+    }
+    .file.selected {
+      background-color: var(--primary-hover);
     }
   }
 
@@ -1302,6 +1597,144 @@ html[dir="rtl"] .settings .panel .master-url .icon {
   }
 }
 
+@include breakpoint-down(md) {
+  .file-manager .file-list .file {
+    padding: 0.5em;
+    display: flex;
+    .details {
+      flex-grow: 1;
+      padding-left: 1rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      .size {
+        color: var(--text-disabled);
+        font-size: 0.9em;
+      }
+    }
+    .file-icon, .button.icon {
+      font-size: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .file-select {
+      display: none;
+    }
+  }
+}
+@include breakpoint(md) {
+  .file-manager .file-list {
+    display: grid;
+    row-gap: 4px;
+    justify-content: space-around;
+    grid-template-columns: repeat(auto-fill, 125px);
+    transform-style: preserve-3d;
+    justify-content: space-between;
+    .file {
+      display: block;
+      width: 125px;
+      margin-bottom: 1.25rem;
+      position: relative;
+      padding: 0 .25rem .25rem;
+      &:hover, &.selected {
+        margin-bottom: 0;
+      }
+      & > .icon:not(.button) {
+        text-align: center;
+        width: 100%;
+        font-size: 6em;
+        display: block;
+      }
+      .details {
+        text-align: center;
+        margin-top: -.5rem;
+        display: block;
+        width: 100%;
+        .size {
+          display: none;
+        }
+        .name {
+          width: 100%;
+          text-overflow: ellipsis;
+          overflow: hidden;
+          white-space: nowrap;
+        }
+      }
+      &:hover .details .name {
+        text-overflow: unset;
+        white-space: unset;
+        overflow-wrap: break-word;
+      }
+      .button.icon, .file-select {
+        display: none;
+      }
+      &:hover .button.icon {
+        display: flex;
+        position: absolute;
+        top: .5rem;
+        right: .5rem;
+        background-color: var(--background);
+        width: 1.5rem;
+        min-width: 1.5rem;
+        height: 1.5rem;
+      }
+      &:hover .file-select {
+        display: flex;
+        position: absolute;
+        top: .5rem;
+        left: .5rem;
+        width: 1.5rem;
+        min-width: 1.5rem;
+        height: 1.5rem;
+        .switch:before {
+          display: none;
+        }
+        .switch:after {
+          @include icon-base;
+          @include icon-name-base('plus');
+          background-color: var(--background);
+          top: 0;
+          left: 0;
+          box-shadow: none;
+          font-size: 1.35rem;
+          text-align: center;
+          width: 1.5rem;
+          height: 1.5rem;
+        }
+        input:checked + .switch:after {
+          @include icon-name-base('minus');
+          background-color: var(--primary-hover);
+          transform: unset;
+        }
+      }
+      .context-menu.source-activator {
+        margin-top: .5rem;
+        margin-left: calc(100% - 2rem);
+      }
+    }
+  }
+}
+
+@include high-contrast-mode {
+  .file-manager .file-list .file {
+    &:hover {
+      background-color: unset;
+      .details .name {
+        text-decoration: underline dashed;
+      }
+    }
+    .context-menu {
+      border: 3px solid var(--text);
+      .action-delete {
+        .label, .icon::before {
+          color: var(--text);
+        }
+      }
+    }
+  }
+}
+
 .console-wrapper {
   overflow-y: auto;
   display: flex;
@@ -1310,11 +1743,6 @@ html[dir="rtl"] .settings .panel .master-url .icon {
   padding: 0.5em;
   height: calc(100vh - 64px - 19em);
   position: relative;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  &::-webkit-scrollbar {
-    display: none;
-  }
 }
 
 @include high-contrast-mode {
@@ -1345,14 +1773,14 @@ html[dir="rtl"] .settings .panel .master-url .icon {
 #console {
   position:relative;
   .icon-clear-console::before {
-    @include clickable;
     color: #fff;
     position: absolute;
-    top: 0.5em;
-    right: 0.5em;
+    top: 0.75em;
+    right: 0.75em;
     font-size: 1.5em;
     background-color: #000;
     z-index: 1;
+    @include clickable;
   }
 
   .command {
@@ -1361,10 +1789,10 @@ html[dir="rtl"] .settings .panel .master-url .icon {
       width: calc(100% - 3em);
     }
     .icon-send {
-      @include clickable;
       margin-left: 0.5em;
       font-size: 2em;
       vertical-align: middle;
+      @include clickable;
     }
   }
 }
@@ -1381,21 +1809,25 @@ html[dir="rtl"] #console .command .icon-send {
 
   .user {
     @include row;
-    grid-gap: 0;
-    gap: 0;
+    & {
+      grid-gap: 0;
+      gap: 0;
+    }
 
     &.open {
       @include card;
-      margin-top: 0;
-      margin-bottom: 18px;
+      & {
+        margin-top: 0;
+        margin-bottom: 18px;
+      }
     }
 
     h3 {
-      @include clickable;
       position: relative;
       font-size: 1.5em;
       margin-top: 0;
       margin-bottom: 0.5em;
+      @include clickable;
 
       &::after {
         position: absolute;
@@ -1415,7 +1847,9 @@ html[dir="rtl"] #console .command .icon-send {
     .switch-wrapper {
       @include cols(12);
       @include cols(6, md);
-      margin-bottom: 0;
+      & {
+        margin-bottom: 0;
+      }
     }
 
     &.closed .switch-wrapper, &.closed .button {
@@ -1436,13 +1870,14 @@ html[dir="rtl"] #console .command .icon-send {
     .button {
       @include cols(12);
       @include cols(4, md);
+      & {
+        height: 56px;
+        margin-bottom: 0;
+      }
 
       @include breakpoint-only(xs) {
         margin-top: 0;
       }
-
-      height: 56px;
-      margin-bottom: 0;
     }
   }
 }
